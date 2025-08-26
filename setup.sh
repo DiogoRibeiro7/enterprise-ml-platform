@@ -1,6 +1,11 @@
 """
 Setup script for Enterprise ML Platform.
 
+Author: Diogo Ribeiro
+Email: dfr@esmad.ipp.pt | diogo.debastos.ribeiro@gmail.com
+GitHub: https://github.com/diogoribeiro7/enterprise-ml-platform
+ORCID: https://orcid.org/0009-0001-2022-7072
+
 This setup.py provides backward compatibility for systems that don't support 
 pyproject.toml yet, but the canonical configuration is in pyproject.toml.
 """
@@ -9,9 +14,13 @@ import os
 import sys
 from pathlib import Path
 
+# =============================================================================
+# INITIAL SETUP AND VALIDATION
+# =============================================================================
+
 # Ensure setuptools is available
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     print("Error: setuptools is required to install this package.")
     print("Please install setuptools: pip install setuptools")
@@ -26,6 +35,10 @@ if sys.version_info < (3, 9):
 # Get the directory containing this file
 HERE = Path(__file__).parent.absolute()
 
+# =============================================================================
+# METADATA AND DESCRIPTION
+# =============================================================================
+
 # Read README for long description
 README_PATH = HERE / "README.md"
 if README_PATH.exists():
@@ -34,7 +47,6 @@ if README_PATH.exists():
 else:
     long_description = "A comprehensive, production-ready machine learning platform designed for enterprise environments"
 
-# Read version from _version.py if it exists, otherwise use setuptools_scm
 def get_version():
     """Get version from setuptools_scm or fallback."""
     try:
@@ -49,6 +61,10 @@ def get_version():
                     if line.startswith("__version__"):
                         return line.split("=")[1].strip().strip('"\'')
         return "0.1.0.dev0"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
 
 # Core dependencies (subset of what's in pyproject.toml for backward compatibility)
 CORE_REQUIREMENTS = [
@@ -130,6 +146,10 @@ DOC_REQUIREMENTS = [
 # All optional dependencies
 ALL_REQUIREMENTS = CORE_REQUIREMENTS + DEV_REQUIREMENTS + TEST_REQUIREMENTS + DOC_REQUIREMENTS
 
+# =============================================================================
+# REQUIREMENTS FILE HANDLING
+# =============================================================================
+
 def read_requirements_file(filename):
     """Read requirements from a file, handling comments and blank lines."""
     requirements_path = HERE / "requirements" / filename
@@ -163,14 +183,16 @@ except Exception as e:
     print(f"Warning: Could not read requirements files: {e}")
     print("Using fallback requirements from setup.py")
 
+# =============================================================================
+# PACKAGE DISCOVERY AND CONFIGURATION
+# =============================================================================
+
 def get_packages():
     """Get packages from src directory."""
     try:
-        from setuptools import find_packages
         return find_packages(where="src")
-    except ImportError:
+    except Exception:
         # Fallback for older setuptools versions
-        import os
         packages = []
         src_dir = HERE / "src"
         if src_dir.exists():
@@ -194,6 +216,10 @@ PACKAGE_DATA = {
         "schemas/*",
     ]
 }
+
+# =============================================================================
+# ENTRY POINTS CONFIGURATION
+# =============================================================================
 
 # Entry points for CLI tools
 ENTRY_POINTS = {
@@ -230,6 +256,10 @@ ENTRY_POINTS = {
     ],
 }
 
+# =============================================================================
+# PROJECT METADATA
+# =============================================================================
+
 # Classifiers for PyPI
 CLASSIFIERS = [
     "Development Status :: 5 - Production/Stable",
@@ -263,8 +293,27 @@ PROJECT_URLS = {
     "Personal Contact": "mailto:diogo.debastos.ribeiro@gmail.com",
 }
 
+# Keywords
+KEYWORDS = [
+    "machine-learning",
+    "mlops", 
+    "data-science",
+    "ai",
+    "enterprise",
+    "pipeline",
+    "automation",
+    "kubernetes",
+    "cloud",
+    "monitoring"
+]
+
+# =============================================================================
+# SETUP FUNCTION CALL
+# =============================================================================
+
 if __name__ == "__main__":
     setup(
+        # Basic package information
         name="enterprise-ml-platform",
         version=get_version(),
         description="A comprehensive, production-ready machine learning platform designed for enterprise environments",
@@ -307,18 +356,7 @@ if __name__ == "__main__":
         
         # Metadata
         classifiers=CLASSIFIERS,
-        keywords=[
-            "machine-learning",
-            "mlops", 
-            "data-science",
-            "ai",
-            "enterprise",
-            "pipeline",
-            "automation",
-            "kubernetes",
-            "cloud",
-            "monitoring"
-        ],
+        keywords=KEYWORDS,
         
         # Options
         options={

@@ -1,13 +1,18 @@
 # Enterprise ML Platform
 
-[![CI/CD Pipeline](https://github.com/your-org/enterprise-ml-platform/workflows/CI/badge.svg)](https://github.com/your-org/enterprise-ml-platform/actions) [![Security Scan](https://github.com/your-org/enterprise-ml-platform/workflows/Security/badge.svg)](https://github.com/your-org/enterprise-ml-platform/actions) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/) [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/your-org/enterprise-ml-platform) [![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue.svg)](https://kubernetes.io/)
+[![CI/CD Pipeline](https://github.com/diogoribeiro7/enterprise-ml-platform/workflows/CI/badge.svg)](https://github.com/diogoribeiro7/enterprise-ml-platform/actions)
+[![Security Scan](https://github.com/diogoribeiro7/enterprise-ml-platform/workflows/Security/badge.svg)](https://github.com/diogoribeiro7/enterprise-ml-platform/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/diogoribeiro7/enterprise-ml-platform)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue.svg)](https://kubernetes.io/)
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0001--2022--7072-green.svg)](https://orcid.org/0009-0001-2022-7072)
 
 A comprehensive, production-ready machine learning platform designed for enterprise environments. This platform provides end-to-end MLOps capabilities including automated data ingestion, advanced feature engineering, distributed model training, multi-cloud deployment, and comprehensive monitoring.
 
 ## 🚀 Features
 
 ### **Core Capabilities**
-
 - **🔄 Automated ML Pipeline** - End-to-end orchestration from data to deployment
 - **📊 Multi-Source Data Ingestion** - S3, PostgreSQL, Kafka, APIs with parallel processing
 - **🛠️ Advanced Feature Engineering** - Automated feature selection, transformation, and interaction discovery
@@ -17,7 +22,6 @@ A comprehensive, production-ready machine learning platform designed for enterpr
 - **🚨 Intelligent Alerting** - Multi-channel notifications (Email, Slack, PagerDuty, SMS)
 
 ### **Enterprise Features**
-
 - **🔐 Security First** - Encryption, secrets management, audit trails
 - **📏 Scalability** - Distributed processing, auto-scaling, resource optimization
 - **🔍 Observability** - Structured logging, metrics, tracing, dashboards
@@ -35,7 +39,7 @@ graph TB
         API[APIs]
         Kafka[Kafka Streams]
     end
-
+    
     subgraph "ML Platform"
         DI[Data Ingestion Service]
         FE[Feature Engineering Service]
@@ -43,7 +47,7 @@ graph TB
         MD[Model Deployment Service]
         MON[Monitoring Service]
     end
-
+    
     subgraph "Infrastructure"
         K8S[Kubernetes Cluster]
         MLFlow[MLflow Registry]
@@ -51,22 +55,22 @@ graph TB
         Prom[Prometheus]
         Graf[Grafana]
     end
-
+    
     S3 --> DI
     DB --> DI
     API --> DI
     Kafka --> DI
-
+    
     DI --> FE
     FE --> MT
     MT --> MD
     MD --> MON
-
+    
     MT --> MLFlow
     FE --> FS
     MON --> Prom
     Prom --> Graf
-
+    
     MD --> K8S
 ```
 
@@ -259,17 +263,17 @@ enterprise-ml-platform/
 - Kubernetes cluster (optional)
 - Cloud provider account (AWS/GCP/Azure) (optional)
 
-### 1\. Clone and Setup
+### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/your-org/enterprise-ml-platform.git
+git clone https://github.com/diogoribeiro7/enterprise-ml-platform.git
 cd enterprise-ml-platform
 
 # Setup development environment
 ./scripts/setup_dev_environment.sh
 ```
 
-### 2\. Install Dependencies
+### 2. Install Dependencies
 
 ```bash
 # Install in development mode
@@ -279,7 +283,7 @@ pip install -e ".[dev]"
 poetry install --with dev
 ```
 
-### 3\. Configure the Platform
+### 3. Configure the Platform
 
 ```bash
 # Copy and customize configuration
@@ -287,7 +291,7 @@ cp config/development.yaml.example config/development.yaml
 # Edit config/development.yaml with your settings
 ```
 
-### 4\. Start Local Development Stack
+### 4. Start Local Development Stack
 
 ```bash
 # Start supporting services (PostgreSQL, Redis, MLflow, etc.)
@@ -297,12 +301,12 @@ docker-compose up -d
 python -m enterprise_ml_platform.cli pipeline run --config config/development.yaml
 ```
 
-### 5\. Access the Platform
+### 5. Access the Platform
 
-- **API Documentation**: <http://localhost:8000/docs>
-- **MLflow UI**: <http://localhost:5000>
-- **Grafana Dashboard**: <http://localhost:3000> (admin/admin)
-- **Prometheus Metrics**: <http://localhost:9090>
+- **API Documentation**: http://localhost:8000/docs
+- **MLflow UI**: http://localhost:5000
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **Prometheus Metrics**: http://localhost:9090
 
 ## 📖 Usage Examples
 
@@ -408,7 +412,7 @@ terraform apply -var-file="production.tfvars"
 The platform supports deployment across multiple cloud providers:
 
 - **AWS**: SageMaker, EKS, S3, RDS
-- **Google Cloud**: AI Platform, GKE, Cloud Storage, Cloud SQL
+- **Google Cloud**: AI Platform, GKE, Cloud Storage, Cloud SQL  
 - **Azure**: Machine Learning, AKS, Blob Storage, Azure SQL
 - **On-Premises**: Kubernetes, MinIO, PostgreSQL
 
@@ -490,61 +494,61 @@ We welcome contributions! Please see our [Contributing Guide](docs/developer_gui
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the <LICENSE> file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
 ### Documentation
 
-- **Architecture**: <docs/architecture/>
-- **User Guide**: <docs/user_guide/>
-- **API Reference**: <docs/api/>
-- **Troubleshooting**: <docs/user_guide/troubleshooting.md>
+- **Architecture**: [docs/architecture/](docs/architecture/)
+- **User Guide**: [docs/user_guide/](docs/user_guide/)
+- **API Reference**: [docs/api/](docs/api/)
+- **Troubleshooting**: [docs/user_guide/troubleshooting.md](docs/user_guide/troubleshooting.md)
 
-### Community
+### Community & Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/enterprise-ml-platform/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/enterprise-ml-platform/discussions)
-- **Slack**: [Join our Slack](https://your-org.slack.com/channels/ml-platform)
-- **Email**: ml-platform@your-org.com
+- **Issues**: [GitHub Issues](https://github.com/diogoribeiro7/enterprise-ml-platform/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/diogoribeiro7/enterprise-ml-platform/discussions)
+- **Email**: [diogo.debastos.ribeiro@gmail.com](mailto:diogo.debastos.ribeiro@gmail.com)
+- **Professional Contact**: [dfr@esmad.ipp.pt](mailto:dfr@esmad.ipp.pt)
+- **ORCID**: [0009-0001-2022-7072](https://orcid.org/0009-0001-2022-7072)
 
-### Enterprise Support
+### Contributing
 
-For enterprise support, custom implementations, or consulting services:
+We welcome contributions! Please see our [Contributing Guide](docs/developer_guide/contributing.md) for details.
 
-- **Email**: enterprise@your-org.com
-- **Website**: <https://your-org.com/ml-platform-enterprise>
-- **Phone**: +1-800-ML-PLATFORM
+**Author**: [Diogo Ribeiro](https://github.com/diogoribeiro7) - Research and Development in Machine Learning and AI Systems
+
+For questions, suggestions, or collaboration opportunities, feel free to reach out!
 
 ## 🚀 Roadmap
 
 ### Current Release (v2.0)
-
 - ✅ Core pipeline orchestration
 - ✅ Multi-cloud deployment support
 - ✅ Advanced monitoring and alerting
 - ✅ Comprehensive testing suite
 
 ### Next Release (v2.1) - Q2 2024
-
 - 🔄 Real-time streaming pipelines
 - 🔄 AutoML integration
 - 🔄 Advanced A/B testing framework
 - 🔄 Enhanced security features
 
 ### Future Releases
-
 - 📋 MLOps marketplace for custom components
 - 📋 Advanced interpretability dashboard
 - 📋 Federated learning support
 - 📋 Edge deployment capabilities
 
---------------------------------------------------------------------------------
+---
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=your-org/enterprise-ml-platform&type=Date)](https://star-history.com/#your-org/enterprise-ml-platform&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=diogoribeiro7/enterprise-ml-platform&type=Date)](https://star-history.com/#diogoribeiro7/enterprise-ml-platform&Date)
 
---------------------------------------------------------------------------------
+---
 
-**Built with ❤️ for the ML community**
+**Built with ❤️ by [Diogo Ribeiro](https://github.com/diogoribeiro7)**
+
+*Advancing the state of MLOps through enterprise-grade solutions*

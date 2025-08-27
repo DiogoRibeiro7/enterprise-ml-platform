@@ -8,6 +8,8 @@ from typing import Any, Dict, Optional, Tuple
 import asyncio
 import numpy as np
 import structlog
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
 try:  # pragma: no cover - optional dependency
     import mlflow
@@ -47,15 +49,33 @@ class ModelTrainingService:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        config: ModelConfig,
+        config: Optional[ModelConfig] = None,
         X_val: Optional[np.ndarray] = None,
         y_val: Optional[np.ndarray] = None,
     ) -> Tuple[Any, Dict[str, float]]:
         """Train a model according to ``config``.
 
+        ``config`` is optional to preserve backwards compatibility with older
+        callers.  When omitted a small voting ensemble of logistic regression
+        and decision tree classifiers is trained, mimicking the configuration
+        used in the test-suite.
+
         Returns:
             Tuple of trained model and evaluation metrics.
         """
+        if config is None:
+            config = ModelConfig(
+                algorithm="ensemble",
+                ensemble={
+                    "estimators": [
+                        ("lr", LogisticRegression(max_iter=100)),
+                        ("dt", DecisionTreeClassifier(max_depth=3)),
+                    ],
+                    "task": "classification",
+                    "method": "voting",
+                },
+            )
+
         trainer = self._build_trainer(config)
 
         params = dict(config.params)

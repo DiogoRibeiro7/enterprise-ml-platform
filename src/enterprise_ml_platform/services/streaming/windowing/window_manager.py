@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 """Window management for streaming aggregates."""
+from __future__ import annotations
 
 import collections
 import time

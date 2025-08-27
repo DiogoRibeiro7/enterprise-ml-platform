@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 """Streaming pipeline orchestrator."""
-
 import asyncio
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, Optional

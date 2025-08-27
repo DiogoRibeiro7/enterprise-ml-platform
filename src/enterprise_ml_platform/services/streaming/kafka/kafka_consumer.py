@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 """Kafka consumer utilities for streaming pipeline."""
+from __future__ import annotations
 
 from typing import Any, AsyncIterator, Dict, Optional
 

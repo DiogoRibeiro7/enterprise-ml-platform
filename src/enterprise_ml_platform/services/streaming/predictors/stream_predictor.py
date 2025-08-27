@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 """Real-time model inference utilities."""
+from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict

@@ -7,8 +7,18 @@ loaded models during the lifetime of the application.
 from __future__ import annotations
 
 from typing import Dict, List, Optional
-
+import os
 import structlog
+from redis.asyncio import Redis
+
+from ..services.feature_store import (
+    FeatureRegistry,
+    FeatureStoreConfig,
+    FeatureStoreService,
+    OfflineFeatureStore,
+    OnlineFeatureStore,
+)
+from ..services.monitoring.collectors.metrics_collector import MetricsCollector
 
 
 class ModelRegistry:
@@ -86,11 +96,29 @@ class ModelRegistry:
 
 _registry = ModelRegistry()
 
+_feature_store: Optional[FeatureStoreService] = None
+
 
 def get_registry() -> ModelRegistry:
     """FastAPI dependency providing the shared :class:`ModelRegistry`."""
 
     return _registry
+
+
+def get_feature_store() -> FeatureStoreService:
+    """Return a singleton :class:`FeatureStoreService` instance."""
+
+    global _feature_store
+    if _feature_store is None:
+        redis_url = os.getenv("FEATURE_STORE_REDIS_URL", "redis://redis:6379/0")
+        metrics = MetricsCollector()
+        redis_client = Redis.from_url(redis_url)
+        online = OnlineFeatureStore(redis_client, metrics=metrics)
+        offline = OfflineFeatureStore(metrics=metrics)
+        registry = FeatureRegistry()
+        cfg = FeatureStoreConfig(redis_url=redis_url)
+        _feature_store = FeatureStoreService(cfg, registry, online, offline)
+    return _feature_store
 
 
 def get_logger() -> structlog.BoundLogger:

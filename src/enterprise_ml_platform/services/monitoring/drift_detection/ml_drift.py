@@ -19,7 +19,10 @@ class MLDriftDetector:
 
     def fit(self, reference: Dict[str, Sequence[float]]) -> None:
         for name, values in reference.items():
-            self.reference_means[name] = float(np.mean(values))
+            arr = np.asarray(values)
+            if not np.issubdtype(arr.dtype, np.number):
+                continue
+            self.reference_means[name] = float(np.mean(arr))
 
     def predict(self, current: Dict[str, Sequence[float]]) -> Dict[str, float]:
         """Return absolute mean differences for each feature."""
@@ -28,5 +31,8 @@ class MLDriftDetector:
             ref = self.reference_means.get(name)
             if ref is None:
                 continue
-            scores[name] = float(abs(ref - np.mean(values)))
+            arr = np.asarray(values)
+            if not np.issubdtype(arr.dtype, np.number):
+                continue
+            scores[name] = float(abs(ref - np.mean(arr)))
         return scores

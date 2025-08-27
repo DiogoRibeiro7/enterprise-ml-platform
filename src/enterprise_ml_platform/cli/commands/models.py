@@ -16,13 +16,18 @@ app = typer.Typer(help="Train and manage models.")
 def train(
     algorithm: str = typer.Option(..., help="Training algorithm"),
     config: Path = typer.Option(..., exists=True, help="Training configuration"),
+    optimizer: str = typer.Option(
+        "optuna", help="Hyperparameter optimizer (optuna|bayesian|ray)"
+    ),
 ) -> None:
     """Train models with various algorithms."""
     with Progress() as progress:
-        task = progress.add_task(f"Training {algorithm}", total=3)
+        task = progress.add_task(f"Training {algorithm} with {optimizer}", total=3)
         for _ in range(3):
             progress.advance(task)
-    console.print(f"[green]{algorithm} training completed using {config}[/green]")
+    console.print(
+        f"[green]{algorithm} training completed using {config} and {optimizer} optimisation[/green]"
+    )
 
 
 @app.command()

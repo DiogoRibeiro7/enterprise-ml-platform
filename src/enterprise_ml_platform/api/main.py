@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .middleware import AuthMiddleware, LoggingMiddleware, RateLimitMiddleware, TimeoutMiddleware
-from .routers import health, models, predictions
+from .routers import ab_testing, feature_store, health, models, predictions
 
 
 def create_app() -> FastAPI:
@@ -17,6 +17,8 @@ def create_app() -> FastAPI:
     app.include_router(predictions.router, prefix="/api/v1")
     app.include_router(models.router, prefix="/api/v1")
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(feature_store.router, prefix="/api/v1")
+    app.include_router(ab_testing.router, prefix="/api/v1")
 
     # Middleware
     app.add_middleware(LoggingMiddleware)

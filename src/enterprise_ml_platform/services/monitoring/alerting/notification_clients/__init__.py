@@ -2,5 +2,6 @@
 
 from .email import EmailClient
 from .slack import SlackClient
+from .pagerduty import PagerDutyClient
 
-__all__ = ["EmailClient", "SlackClient"]
+__all__ = ["EmailClient", "SlackClient", "PagerDutyClient"]

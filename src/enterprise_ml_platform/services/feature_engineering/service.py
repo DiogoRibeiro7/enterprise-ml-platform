@@ -12,6 +12,17 @@ try:  # pragma: no cover - optional dependency
 except Exception:  # pragma: no cover
     Client = None  # type: ignore
 
+from redis.asyncio import Redis
+
+from ..feature_store import (
+    FeatureRegistry,
+    FeatureStoreConfig,
+    FeatureStoreService,
+    OfflineFeatureStore,
+    OnlineFeatureStore,
+)
+from ..monitoring.collectors.metrics_collector import MetricsCollector
+
 from .transformers.numerical_transformer import NumericalFeatureTransformer
 from .transformers.categorical_transformer import CategoricalFeatureTransformer
 from .transformers.temporal_transformer import TemporalFeatureTransformer
@@ -40,6 +51,26 @@ class FeatureEngineeringService:
         self.client: Optional[Client] = None
         if config.get("use_dask") and Client is not None:
             self.client = Client(processes=False)
+        self.feature_store: Optional[FeatureStoreService] = None
+        fs_cfg = config.get("feature_store")
+        if fs_cfg:
+            metrics = MetricsCollector()
+            redis_client = Redis.from_url(fs_cfg.get("redis_url", "redis://localhost:6379/0"))
+            online = OnlineFeatureStore(
+                redis_client,
+                ttl_seconds=fs_cfg.get("ttl_seconds", 3600),
+                metrics=metrics,
+            )
+            offline = OfflineFeatureStore(metrics=metrics)
+            registry = FeatureRegistry()
+            cfg = FeatureStoreConfig(
+                redis_url=fs_cfg.get("redis_url", "redis://localhost:6379/0"),
+                ttl_seconds=fs_cfg.get("ttl_seconds", 3600),
+                feast_repo=fs_cfg.get("feast_repo"),
+            )
+            self.feature_store = FeatureStoreService(
+                cfg, registry, online, offline
+            )
 
     async def engineer_features(
         self, data: pd.DataFrame, target: Optional[pd.Series] = None
@@ -75,7 +106,9 @@ class FeatureEngineeringService:
             features_selected=df_selected.shape[1],
         )
 
-        if self.config.get("feast_repo"):
+        if self.feature_store:
+            await self.feature_store.register_features("engineered_features", df_selected)
+        elif self.config.get("feast_repo"):
             try:
                 from feast import FeatureStore
 
@@ -88,3 +121,5 @@ class FeatureEngineeringService:
     async def shutdown(self) -> None:
         if self.client:
             await self.client.close()
+        if self.feature_store:
+            await self.feature_store.close()

@@ -6,7 +6,7 @@ from typing import Dict, Iterable
 
 import structlog
 
-from .notification_clients import EmailClient, SlackClient
+from .notification_clients import EmailClient, SlackClient, PagerDutyClient
 from .rules_engine import Alert
 
 logger = structlog.get_logger(__name__)
@@ -19,6 +19,7 @@ class AlertManager:
         self.clients = clients or {
             "email": EmailClient(),
             "slack": SlackClient(),
+            "pagerduty": PagerDutyClient(),
         }
 
     async def dispatch(self, alerts: Iterable[Alert]) -> None:

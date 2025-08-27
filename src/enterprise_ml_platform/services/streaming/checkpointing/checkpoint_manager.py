@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 """Checkpoint management for streaming pipelines."""
 
 import json

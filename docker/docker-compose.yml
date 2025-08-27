@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     environment:
       - ENV=development
+      - FEATURE_STORE_REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
       - redis

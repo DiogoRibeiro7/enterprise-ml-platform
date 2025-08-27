@@ -22,7 +22,10 @@ class StatisticalDriftDetector:
     def fit(self, reference: Dict[str, Sequence[float]]) -> None:
         """Store reference statistics for features."""
         for name, values in reference.items():
-            self.reference[name] = np.asarray(values, dtype=float)
+            arr = np.asarray(values)
+            if not np.issubdtype(arr.dtype, np.number):
+                continue
+            self.reference[name] = arr.astype(float)
 
     def detect(self, current: Dict[str, Sequence[float]]) -> Dict[str, float]:
         """Return drift scores for supplied feature values."""
@@ -31,7 +34,10 @@ class StatisticalDriftDetector:
             ref = self.reference.get(name)
             if ref is None:
                 continue
-            cur = np.asarray(values, dtype=float)
+            cur_arr = np.asarray(values)
+            if not np.issubdtype(cur_arr.dtype, np.number):
+                continue
+            cur = cur_arr.astype(float)
             if ref.std() == 0:
                 score = float(abs(cur.mean() - ref.mean()))
             else:

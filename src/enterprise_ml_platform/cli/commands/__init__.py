@@ -1,6 +1,6 @@
 """CLI command groups for the Enterprise ML Platform."""
 
-from . import pipeline, data, models, deploy, monitor, config
+from . import pipeline, data, models, deploy, monitor, config, ab_test
 
 __all__ = [
     "pipeline",
@@ -9,4 +9,5 @@ __all__ = [
     "deploy",
     "monitor",
     "config",
+    "ab_test",
 ]

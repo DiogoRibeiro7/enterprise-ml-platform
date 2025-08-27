@@ -1,0 +1,26 @@
+{
+  "title": "Model Monitoring",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Feature Drift",
+      "targets": [
+        {"expr": "ml_feature_drift_score"}
+      ],
+      "datasource": null,
+      "id": 1
+    },
+    {
+      "type": "graph",
+      "title": "Model Accuracy",
+      "targets": [
+        {"expr": "ml_model_accuracy"}
+      ],
+      "datasource": null,
+      "id": 2
+    }
+  ],
+  "schemaVersion": 16,
+  "version": 1
+}

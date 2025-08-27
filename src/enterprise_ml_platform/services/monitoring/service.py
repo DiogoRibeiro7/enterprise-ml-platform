@@ -14,9 +14,10 @@ import structlog
 
 from .collectors.metrics_collector import MetricsCollector
 from .drift_detection.drift_analyzer import DriftAnalyzer
-from .performance.performance_monitor import PerformanceMonitor
+from .performance_tracking import PerformanceTracker
 from .alerting.alert_manager import AlertManager
 from .alerting.rules_engine import Alert, AlertRule, RulesEngine
+from .automated_response import AutomatedResponder
 
 logger = structlog.get_logger(__name__)
 
@@ -30,6 +31,7 @@ class PredictionEvent:
     predicted: float
     actual: Optional[float] = None
     features: Optional[Dict[str, Any]] = None
+    confidence: Optional[float] = None
 
 
 class MonitoringService:
@@ -49,15 +51,17 @@ class MonitoringService:
         self,
         metrics: Optional[MetricsCollector] = None,
         drift_analyzer: Optional[DriftAnalyzer] = None,
-        performance_monitor: Optional[PerformanceMonitor] = None,
+        performance_monitor: Optional[PerformanceTracker] = None,
         alert_manager: Optional[AlertManager] = None,
         rules_engine: Optional[RulesEngine] = None,
+        responder: Optional[AutomatedResponder] = None,
     ) -> None:
         self.metrics = metrics or MetricsCollector()
         self.drift_analyzer = drift_analyzer or DriftAnalyzer()
-        self.performance_monitor = performance_monitor or PerformanceMonitor()
+        self.performance_monitor = performance_monitor or PerformanceTracker()
         self.alert_manager = alert_manager or AlertManager()
         self.rules_engine = rules_engine or RulesEngine()
+        self.responder = responder or AutomatedResponder()
 
     async def handle_event(self, event: PredictionEvent) -> None:
         """Process a prediction event and update monitoring state."""
@@ -73,8 +77,11 @@ class MonitoringService:
             self.metrics.set_accuracy(event.model_name, accuracy)
             metric_values[f"{event.model_name}_accuracy"] = accuracy
 
-        if event.features:
-            drift_scores = self.drift_analyzer.check(event.features)
+        if event.features or event.confidence is not None:
+            drift_scores = self.drift_analyzer.check(
+                event.features or {},
+                [event.confidence] if event.confidence is not None else None,
+            )
             for feature, score in drift_scores.items():
                 self.metrics.set_drift(feature, score)
                 metric_values[f"{feature}_drift"] = score
@@ -82,6 +89,7 @@ class MonitoringService:
         alerts = self.rules_engine.evaluate(metric_values)
         if alerts:
             await self.alert_manager.dispatch(alerts)
+            await self.responder.handle(alerts)
 
     async def add_rule(self, rule: AlertRule) -> None:
         """Register an alert rule with the service."""

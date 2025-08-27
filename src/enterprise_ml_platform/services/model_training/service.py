@@ -16,9 +16,18 @@ try:  # pragma: no cover - optional dependency
 except Exception:  # pragma: no cover
     mlflow = None  # type: ignore
 
-from .trainers.xgboost_trainer import XGBoostTrainer
-from .trainers.lightgbm_trainer import LightGBMTrainer
 from .trainers.ensemble_trainer import EnsembleTrainer
+
+try:  # pragma: no cover - optional trainers
+    from .trainers.xgboost_trainer import XGBoostTrainer
+except Exception:  # pragma: no cover
+    XGBoostTrainer = None  # type: ignore
+
+try:  # pragma: no cover - optional trainers
+    from .trainers.lightgbm_trainer import LightGBMTrainer
+except Exception:  # pragma: no cover
+    LightGBMTrainer = None  # type: ignore
+
 from .optimization.hyperparameter_optimizer import HyperparameterOptimizer
 from .explainability.model_explainer import ModelExplainer
 

@@ -11,6 +11,7 @@ from enterprise_ml_platform.cli.commands import (
     models as models_cmd,
     monitor as monitor_cmd,
     pipeline as pipeline_cmd,
+    ab_test as ab_test_cmd,
 )
 
 console = Console()
@@ -21,6 +22,7 @@ app.add_typer(models_cmd.app, name="models")
 app.add_typer(deploy_cmd.app, name="deploy")
 app.add_typer(monitor_cmd.app, name="monitor")
 app.add_typer(config_cmd.app, name="config")
+app.add_typer(ab_test_cmd.app, name="abtest")
 
 
 def version_callback(value: bool) -> None:

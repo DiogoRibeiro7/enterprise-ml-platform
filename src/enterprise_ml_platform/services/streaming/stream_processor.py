@@ -2,7 +2,7 @@ from __future__ import annotations
 """Streaming pipeline orchestrator."""
 import asyncio
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, Dict, Optional
 
 import structlog
 
@@ -11,6 +11,8 @@ from .kafka.kafka_producer import KafkaProducer
 from .transformers.stream_transformer import StreamTransformer
 from .predictors.stream_predictor import StreamPredictor
 from .windowing.window_manager import WindowManager
+from .feature_engineering.stream_feature_engine import StreamFeatureEngine
+from .continuous_learning.incremental_trainer import IncrementalTrainer
 from .state.state_manager import StateManager
 from .monitoring.stream_monitor import StreamMonitor
 from .checkpointing.checkpoint_manager import CheckpointManager
@@ -47,6 +49,8 @@ class StreamProcessor:
         state_manager: Optional[StateManager] = None,
         monitor: Optional[StreamMonitor] = None,
         checkpoint_manager: Optional[CheckpointManager] = None,
+        feature_engine: Optional[StreamFeatureEngine] = None,
+        incremental_trainer: Optional[IncrementalTrainer] = None,
     ) -> None:
         self.consumer = consumer
         self.producer = producer
@@ -56,18 +60,24 @@ class StreamProcessor:
         self.state_manager = state_manager
         self.monitor = monitor
         self.checkpoint_manager = checkpoint_manager
+        self.feature_engine = feature_engine
+        self.incremental_trainer = incremental_trainer
         self._running = False
         self.logger = logger.bind(component="stream-processor")
 
     async def _handle_message(self, message: Dict[str, Any]) -> None:
         try:
             features = await self.transformer.transform(message)
+            if self.feature_engine:
+                features = await self.feature_engine.compute(features)
             if self.window_manager:
                 features = await self.window_manager.apply(features)
             if self.state_manager:
                 await self.state_manager.update_state(message)
             prediction = await self.predictor.predict(features)
             await self.producer.send(prediction)
+            if self.incremental_trainer and "label" in message:
+                await self.incremental_trainer.update(features, message["label"])
             if self.monitor:
                 await self.monitor.record_success()
         except Exception as exc:  # pragma: no cover - runtime errors

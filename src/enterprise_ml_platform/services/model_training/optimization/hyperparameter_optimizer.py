@@ -8,6 +8,9 @@ from typing import Any, Dict
 import asyncio
 import structlog
 
+from .optimizers import BayesianOptimizer
+from .distributed import RayOptimizer
+
 try:  # pragma: no cover - optional dependency
     import optuna
 except Exception:  # pragma: no cover
@@ -18,7 +21,7 @@ logger = structlog.get_logger()
 
 @dataclass
 class HyperparameterOptimizer:
-    """Wrapper around Optuna studies."""
+    """Unified interface for various optimisation backends."""
 
     study_name: str = "model-optimization"
 
@@ -38,10 +41,21 @@ class HyperparameterOptimizer:
             X: Training features.
             y: Training targets.
             config: Optimization configuration. Must include ``params`` and
-                may specify ``n_trials`` and ``direction``.
+                may specify ``n_trials`` and ``direction``. ``algorithm`` can
+                be one of ``optuna`` (default), ``bayesian`` or ``ray``.
         Returns:
             Best set of hyperparameters identified by the optimizer.
         """
+
+        algorithm = config.get("algorithm", "optuna").lower()
+        if algorithm == "bayesian":
+            optimizer = BayesianOptimizer()
+            return await optimizer.optimize(trainer_factory, X, y, config)
+
+        if algorithm == "ray":  # pragma: no cover - exercised in integration
+            optimizer = RayOptimizer()
+            return await optimizer.optimize(trainer_factory, X, y, config)
+
         if optuna is None:  # pragma: no cover - runtime check
             raise ImportError("optuna is required for hyperparameter optimization")
 

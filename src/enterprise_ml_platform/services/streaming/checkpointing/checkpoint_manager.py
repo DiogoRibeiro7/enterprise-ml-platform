@@ -14,7 +14,9 @@ logger = structlog.get_logger()
 class CheckpointManager:
     """Persist offsets for fault tolerance and recovery."""
 
-    def __init__(self, path: str = "/tmp/stream.checkpoint") -> None:
+    def __init__(self, path: str = None) -> None:
+        if path is None:
+            path = str(Path(tempfile.gettempdir()) / "stream.checkpoint")
         self.path = Path(path)
         self.logger = logger.bind(component="checkpoint-manager")
 

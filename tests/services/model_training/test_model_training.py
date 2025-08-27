@@ -23,5 +23,5 @@ def test_training_service_with_voting_ensemble():
         },
     )
     service = ModelTrainingService()
-    model, metrics = asyncio.run(service.train(X, y, config))
+    model, metrics = asyncio.run(service.train(X, y))
     assert metrics["accuracy"] > 0

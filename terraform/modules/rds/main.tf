@@ -16,7 +16,7 @@ resource "aws_db_instance" "this" {
   username          = "mlp"
   password          = var.db_password
   skip_final_snapshot = true
-  vpc_security_group_ids = []
+  vpc_security_group_ids = [aws_security_group.db.id]
 }
 
 output "db_endpoint" {

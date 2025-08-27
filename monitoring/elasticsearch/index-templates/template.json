@@ -1,0 +1,5 @@
+{
+  "index_patterns": ["ml-platform-*"] ,
+  "settings": {"number_of_shards": 1},
+  "mappings": {"properties": {"message": {"type": "text"}}}
+}

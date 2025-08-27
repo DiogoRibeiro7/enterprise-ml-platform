@@ -1,497 +1,351 @@
-# Enterprise ML Pipeline - Core Architecture
-# File: core/pipeline_orchestrator.py
+"""Pipeline orchestration system for the Enterprise ML Platform.
+
+This module provides a fully asynchronous pipeline engine capable of
+executing complex machine learning workflows with dependency management,
+parallel execution, retries and resilience mechanisms.
+
+Example:
+    >>> import asyncio
+    >>> class Ingest(BasePipelineStage):
+    ...     async def run(self, context: ExecutionContext) -> str:
+    ...         await asyncio.sleep(0.1)
+    ...         return "data"
+    >>> class Train(BasePipelineStage):
+    ...     def __init__(self) -> None:
+    ...         super().__init__("train", dependencies={"ingest"})
+    ...     async def run(self, context: ExecutionContext) -> str:
+    ...         await asyncio.sleep(0.1)
+    ...         return "model"
+    >>> async def main():
+    ...     stages = [Ingest("ingest"), Train()]
+    ...     async with PipelineOrchestrator(stages) as orchestrator:
+    ...         ctx = ExecutionContext(run_id="demo")
+    ...         results = await orchestrator.run(ctx)
+    ...     return results["train"].output
+    >>> asyncio.run(main())
+    'model'
+"""
+
+from __future__ import annotations
 
 import asyncio
-import logging
-from typing import Dict, List, Optional, Any, Protocol
+import time
+from collections import defaultdict, deque
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from abc import ABC, abstractmethod
 from enum import Enum
-from contextlib import asynccontextmanager
-import structlog
-from dependency_injector import containers, providers
-from dependency_injector.wiring import Provide, inject
+from typing import Any, Dict, Iterable, Mapping, Optional, Set
+from abc import ABC, abstractmethod
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer(),
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+import structlog
+from prometheus_client import Counter, Histogram
 
 logger = structlog.get_logger()
 
 
-class PipelineStage(str, Enum):
-    """Pipeline execution stages"""
-
-    DATA_INGESTION = "data_ingestion"
-    DATA_VALIDATION = "data_validation"
-    FEATURE_ENGINEERING = "feature_engineering"
-    MODEL_TRAINING = "model_training"
-    MODEL_VALIDATION = "model_validation"
-    MODEL_DEPLOYMENT = "model_deployment"
-    MONITORING = "monitoring"
-
-
-class ExecutionStatus(str, Enum):
-    """Execution status states"""
+class StageStatus(str, Enum):
+    """Execution status of a pipeline stage."""
 
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
-    CANCELLED = "cancelled"
+    SKIPPED = "skipped"
 
 
 @dataclass
 class ExecutionContext:
-    """Execution context for pipeline runs"""
+    """Holds runtime information for a pipeline run.
+
+    Attributes:
+        run_id: Unique identifier for the pipeline execution.
+        params: Arbitrary parameters that stages may consume.
+        metadata: Metadata collected during the run.
+        artifacts: Mapping of artifact names to locations.
+    """
 
     run_id: str
-    experiment_id: str
-    environment: str
-    config: Dict[str, Any]
+    params: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    metrics: Dict[str, float] = field(default_factory=dict)
+    artifacts: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class StageResult:
-    """Result from pipeline stage execution"""
+    """Result produced by a pipeline stage.
 
-    stage: PipelineStage
-    status: ExecutionStatus
-    output: Optional[Any] = None
-    artifacts: Dict[str, str] = field(default_factory=dict)
+    Attributes:
+        name: Name of the stage.
+        status: Final status of the stage.
+        output: Optional payload returned by the stage.
+        error: Exception raised during execution, if any.
+        metrics: Custom metrics emitted by the stage.
+        started_at: Unix timestamp when execution began.
+        ended_at: Unix timestamp when execution finished.
+    """
+
+    name: str
+    status: StageStatus
+    output: Any = None
+    error: Optional[BaseException] = None
     metrics: Dict[str, float] = field(default_factory=dict)
-    error: Optional[Exception] = None
-    duration_seconds: float = 0.0
+    started_at: float = field(default_factory=time.time)
+    ended_at: float = 0.0
+
+    @property
+    def duration(self) -> float:
+        """Return execution duration in seconds."""
+        return self.ended_at - self.started_at if self.ended_at else 0.0
 
 
-class PipelineStageProtocol(Protocol):
-    """Protocol for pipeline stages"""
+@dataclass
+class RetryPolicy:
+    """Configuration for retry behaviour."""
 
-    async def execute(self, context: ExecutionContext) -> StageResult:
-        """Execute the pipeline stage"""
-        ...
+    max_retries: int = 0
+    backoff_factor: float = 2.0
+    base_delay: float = 1.0
 
-    async def validate(self, context: ExecutionContext) -> bool:
-        """Validate stage prerequisites"""
-        ...
 
-    async def cleanup(self, context: ExecutionContext) -> None:
-        """Cleanup stage resources"""
-        ...
+@dataclass
+class CircuitBreaker:
+    """Simple circuit breaker to guard failing stages."""
+
+    failure_threshold: int = 5
+    recovery_timeout: float = 60.0
+    failure_count: int = field(default=0, init=False)
+    last_failure_time: float = field(default=0.0, init=False)
+    state: str = field(default="closed", init=False)
+
+    def allow(self) -> bool:
+        """Return True if execution is permitted."""
+        if self.state == "open":
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "half_open"
+                return True
+            return False
+        return True
+
+    def record_success(self) -> None:
+        """Reset breaker after a successful call."""
+        self.state = "closed"
+        self.failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failure and open circuit if threshold exceeded."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = "open"
 
 
 class BasePipelineStage(ABC):
-    """Base class for pipeline stages"""
+    """Abstract base class for all pipeline stages.
 
-    def __init__(self, name: str, stage_type: PipelineStage):
-        self.name = name
-        self.stage_type = stage_type
-        self.logger = structlog.get_logger().bind(stage=name)
-
-    @abstractmethod
-    async def _execute_stage(self, context: ExecutionContext) -> StageResult:
-        """Implement stage-specific logic"""
-        pass
-
-    async def execute(self, context: ExecutionContext) -> StageResult:
-        """Execute stage with error handling and logging"""
-        import time
-
-        start_time = time.time()
-
-        self.logger.info("Starting stage execution", run_id=context.run_id)
-
-        try:
-            # Validate prerequisites
-            if not await self.validate(context):
-                raise ValueError(f"Stage validation failed: {self.name}")
-
-            # Execute stage
-            result = await self._execute_stage(context)
-            result.duration_seconds = time.time() - start_time
-
-            self.logger.info(
-                "Stage completed successfully",
-                run_id=context.run_id,
-                duration=result.duration_seconds,
-                metrics=result.metrics,
-            )
-
-            return result
-
-        except Exception as e:
-            duration = time.time() - start_time
-            self.logger.error(
-                "Stage execution failed",
-                run_id=context.run_id,
-                error=str(e),
-                duration=duration,
-            )
-
-            return StageResult(
-                stage=self.stage_type,
-                status=ExecutionStatus.FAILED,
-                error=e,
-                duration_seconds=duration,
-            )
-
-    async def validate(self, context: ExecutionContext) -> bool:
-        """Default validation - can be overridden"""
-        return True
-
-    async def cleanup(self, context: ExecutionContext) -> None:
-        """Default cleanup - can be overridden"""
-        pass
-
-
-class PipelineOrchestrator:
-    """Advanced pipeline orchestrator with dependency management"""
+    Subclasses must implement :meth:`run`.
+    """
 
     def __init__(
         self,
-        stages: List[BasePipelineStage],
-        max_parallel: int = 3,
-        retry_policy: Optional[Dict] = None,
-    ):
-        self.stages = {stage.stage_type: stage for stage in stages}
-        self.max_parallel = max_parallel
-        self.retry_policy = retry_policy or {"max_retries": 3, "backoff_factor": 2}
+        name: str,
+        dependencies: Optional[Iterable[str]] = None,
+        retry_policy: Optional[RetryPolicy] = None,
+    ) -> None:
+        self.name = name
+        self.dependencies: Set[str] = set(dependencies or [])
+        self.retry_policy = retry_policy or RetryPolicy()
+        self.circuit_breaker = CircuitBreaker()
+        self.logger = structlog.get_logger().bind(stage=name)
+
+    @abstractmethod
+    async def run(self, context: ExecutionContext) -> Any:
+        """Execute the stage.
+
+        Args:
+            context: Execution context for the pipeline run.
+
+        Returns:
+            Result produced by the stage.
+        """
+
+    async def rollback(self, context: ExecutionContext, result: StageResult) -> None:
+        """Rollback side effects if the pipeline fails downstream."""
+        return
+
+    async def cleanup(self, context: ExecutionContext) -> None:
+        """Release resources allocated by the stage."""
+        return
+
+
+class PipelineOrchestrator:
+    """Coordinate the execution of pipeline stages.
+
+    The orchestrator resolves dependencies between stages and executes them
+    concurrently using ``asyncio``. It supports retry policies, circuit
+    breakers, metrics collection and progress reporting.
+
+    Example:
+        async with PipelineOrchestrator(stages) as orchestrator:
+            context = ExecutionContext(run_id="123")
+            results = await orchestrator.run(context)
+    """
+
+    def __init__(
+        self,
+        stages: Iterable[BasePipelineStage],
+        concurrency: int = 4,
+    ) -> None:
+        self.stages: Dict[str, BasePipelineStage] = {
+            stage.name: stage for stage in stages
+        }
+        self.concurrency = max(1, concurrency)
         self.logger = structlog.get_logger().bind(component="orchestrator")
+        self._graph = {name: set(stage.dependencies) for name, stage in self.stages.items()}
+        self._dependents: Dict[str, Set[str]] = defaultdict(set)
+        for name, deps in self._graph.items():
+            for dep in deps:
+                self._dependents[dep].add(name)
+        self._validate_graph()
+        self._exit_stack = AsyncExitStack()
+        self._total = len(self.stages)
+        self._completed = 0
+        self._init_metrics()
 
-        # Build dependency graph
-        self.dependency_graph = self._build_dependency_graph()
+    async def __aenter__(self) -> "PipelineOrchestrator":
+        await self._exit_stack.__aenter__()
+        return self
 
-    def _build_dependency_graph(self) -> Dict[PipelineStage, List[PipelineStage]]:
-        """Build stage dependency graph"""
-        # Default linear dependency for ML pipeline
-        stages_order = [
-            PipelineStage.DATA_INGESTION,
-            PipelineStage.DATA_VALIDATION,
-            PipelineStage.FEATURE_ENGINEERING,
-            PipelineStage.MODEL_TRAINING,
-            PipelineStage.MODEL_VALIDATION,
-            PipelineStage.MODEL_DEPLOYMENT,
-            PipelineStage.MONITORING,
-        ]
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self._exit_stack.__aexit__(exc_type, exc, tb)
 
-        graph = {}
-        for i, stage in enumerate(stages_order):
-            graph[stage] = stages_order[:i]  # All previous stages as dependencies
-
-        return graph
-
-    async def execute_pipeline(
-        self, context: ExecutionContext
-    ) -> Dict[PipelineStage, StageResult]:
-        """Execute pipeline with dependency management and parallelization"""
-
-        self.logger.info("Starting pipeline execution", run_id=context.run_id)
-
-        results: Dict[PipelineStage, StageResult] = {}
-        completed = set()
-        failed = set()
-
-        # Create semaphore for parallel execution control
-        semaphore = asyncio.Semaphore(self.max_parallel)
-
-        async def execute_stage_with_retry(stage: PipelineStage) -> StageResult:
-            """Execute single stage with retry logic"""
-
-            async with semaphore:
-                stage_instance = self.stages[stage]
-
-                for attempt in range(self.retry_policy["max_retries"] + 1):
-                    try:
-                        result = await stage_instance.execute(context)
-
-                        if result.status == ExecutionStatus.SUCCESS:
-                            return result
-                        elif attempt < self.retry_policy["max_retries"]:
-                            wait_time = self.retry_policy["backoff_factor"] ** attempt
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            return result
-
-                    except Exception as e:
-                        if attempt < self.retry_policy["max_retries"]:
-                            wait_time = self.retry_policy["backoff_factor"] ** attempt
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            return StageResult(
-                                stage=stage, status=ExecutionStatus.FAILED, error=e
-                            )
-
-        # Execute stages respecting dependencies
-        while len(completed) + len(failed) < len(self.stages):
-            # Find stages ready to execute
-            ready_stages = []
-
-            for stage in self.stages:
-                if (
-                    stage not in completed
-                    and stage not in failed
-                    and stage
-                    not in [
-                        task.get_name()
-                        for task in asyncio.all_tasks()
-                        if hasattr(task, "get_name")
-                    ]
-                ):
-                    # Check if all dependencies are completed
-                    dependencies = self.dependency_graph.get(stage, [])
-                    if all(dep in completed for dep in dependencies):
-                        ready_stages.append(stage)
-
-            if not ready_stages:
-                # Check if we're stuck due to failures
-                if failed:
-                    self.logger.error(
-                        "Pipeline execution halted due to stage failures",
-                        failed_stages=list(failed),
-                    )
-                    break
-                else:
-                    await asyncio.sleep(1)  # Wait for running stages
-                    continue
-
-            # Execute ready stages
-            tasks = []
-            for stage in ready_stages:
-                task = asyncio.create_task(execute_stage_with_retry(stage))
-                task.set_name(stage.value)
-                tasks.append(task)
-
-            # Wait for at least one task to complete
-            done, pending = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED
-            )
-
-            # Process completed tasks
-            for task in done:
-                stage_name = task.get_name()
-                stage = PipelineStage(stage_name)
-                result = task.result()
-
-                results[stage] = result
-
-                if result.status == ExecutionStatus.SUCCESS:
-                    completed.add(stage)
-                    # Update context with stage artifacts and metrics
-                    context.artifacts.update(result.artifacts)
-                    context.metrics.update(result.metrics)
-                else:
-                    failed.add(stage)
-
-            # Cancel remaining tasks if critical failure
-            for task in pending:
-                if not task.done():
-                    task.cancel()
-
-        # Cleanup all stages
-        await self._cleanup_stages(context, results)
-
-        self.logger.info(
-            "Pipeline execution completed",
-            run_id=context.run_id,
-            completed_stages=len(completed),
-            failed_stages=len(failed),
+    def _init_metrics(self) -> None:
+        self.metric_duration = Histogram(
+            "pipeline_stage_duration_seconds", "Time spent executing a stage", ["stage"]
+        )
+        self.metric_success = Counter(
+            "pipeline_stage_success_total", "Number of successful stage executions", ["stage"]
+        )
+        self.metric_failure = Counter(
+            "pipeline_stage_failure_total", "Number of failed stage executions", ["stage"]
         )
 
+    def _validate_graph(self) -> None:
+        in_degree = {name: len(deps) for name, deps in self._graph.items()}
+        queue = deque([n for n, d in in_degree.items() if d == 0])
+        visited = 0
+        while queue:
+            node = queue.popleft()
+            visited += 1
+            for child in self._dependents.get(node, set()):
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    queue.append(child)
+        if visited != len(self._graph):
+            raise ValueError("Cyclic dependencies detected in pipeline")
+
+    @property
+    def progress(self) -> float:
+        """Return pipeline execution progress between 0 and 1."""
+        return self._completed / self._total if self._total else 1.0
+
+    def generate_execution_graph(self) -> Mapping[str, Set[str]]:
+        """Return adjacency list representing stage dependencies."""
+        return {k: set(v) for k, v in self._graph.items()}
+
+    async def run(self, context: ExecutionContext) -> Mapping[str, StageResult]:
+        """Execute the pipeline.
+
+        Args:
+            context: Execution context for this run.
+
+        Returns:
+            Mapping of stage name to :class:`StageResult`.
+        """
+        results: Dict[str, StageResult] = {}
+        pending: Dict[str, Set[str]] = {k: set(v) for k, v in self._graph.items()}
+        ready = deque([name for name, deps in pending.items() if not deps])
+        semaphore = asyncio.Semaphore(self.concurrency)
+        tasks: Dict[str, asyncio.Task] = {}
+
+        async def _run_stage(stage_name: str) -> None:
+            stage = self.stages[stage_name]
+            async with semaphore:
+                result = await self._execute_with_retry(stage, context)
+                results[stage_name] = result
+                await stage.cleanup(context)
+                self._completed += 1
+                self.logger.info(
+                    "stage_completed",
+                    stage=stage_name,
+                    status=result.status.value,
+                    progress=self.progress,
+                    duration=result.duration,
+                )
+                if result.status is StageStatus.SUCCESS:
+                    for dependent in self._dependents.get(stage_name, set()):
+                        pending[dependent].discard(stage_name)
+                        if not pending[dependent]:
+                            ready.append(dependent)
+                else:
+                    await self._rollback(context, results)
+                    raise RuntimeError(f"Stage '{stage_name}' failed") from result.error
+
+        while ready or tasks:
+            while ready and len(tasks) < self.concurrency:
+                name = ready.popleft()
+                tasks[name] = asyncio.create_task(_run_stage(name))
+            if not tasks:
+                continue
+            done, _ = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_COMPLETED)
+            for finished in done:
+                for key, task in list(tasks.items()):
+                    if task is finished:
+                        if task.exception():
+                            await asyncio.gather(*tasks.values(), return_exceptions=True)
+                            raise task.exception()
+                        tasks.pop(key)
         return results
 
-    async def _cleanup_stages(
-        self, context: ExecutionContext, results: Dict[PipelineStage, StageResult]
-    ):
-        """Cleanup all pipeline stages"""
-        cleanup_tasks = []
+    async def _rollback(
+        self, context: ExecutionContext, results: Mapping[str, StageResult]
+    ) -> None:
+        """Rollback all successfully executed stages."""
+        for name, result in results.items():
+            if result.status is StageStatus.SUCCESS:
+                try:
+                    await self.stages[name].rollback(context, result)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.logger.error("rollback_failed", stage=name, error=str(exc))
 
-        for stage_type, stage_instance in self.stages.items():
-            if stage_type in results:  # Only cleanup stages that were executed
-                task = asyncio.create_task(stage_instance.cleanup(context))
-                cleanup_tasks.append(task)
+    async def _execute_with_retry(
+        self, stage: BasePipelineStage, context: ExecutionContext
+    ) -> StageResult:
+        """Execute a stage honouring retry and circuit breaker policies."""
+        if not stage.circuit_breaker.allow():
+            return StageResult(name=stage.name, status=StageStatus.SKIPPED, error=RuntimeError("circuit open"))
 
-        if cleanup_tasks:
-            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-
-
-class PipelineMetrics:
-    """Pipeline metrics collection and reporting"""
-
-    def __init__(self):
-        self.metrics_store = {}
-
-    def record_stage_metrics(self, stage: PipelineStage, metrics: Dict[str, float]):
-        """Record metrics for a pipeline stage"""
-        if stage not in self.metrics_store:
-            self.metrics_store[stage] = []
-
-        self.metrics_store[stage].append(
-            {**metrics, "timestamp": asyncio.get_event_loop().time()}
-        )
-
-    def get_pipeline_summary(self) -> Dict[str, Any]:
-        """Get comprehensive pipeline metrics summary"""
-        summary = {}
-
-        for stage, metrics_list in self.metrics_store.items():
-            if metrics_list:
-                latest_metrics = metrics_list[-1]
-                summary[stage.value] = {
-                    "latest_metrics": latest_metrics,
-                    "total_executions": len(metrics_list),
-                    "average_duration": sum(
-                        m.get("duration_seconds", 0) for m in metrics_list
-                    )
-                    / len(metrics_list),
-                }
-
-        return summary
-
-
-# Dependency Injection Container
-class ApplicationContainer(containers.DeclarativeContainer):
-    """Dependency injection container for the ML pipeline"""
-
-    # Configuration
-    config = providers.Configuration()
-
-    # Logging
-    logger = providers.Singleton(structlog.get_logger)
-
-    # Metrics
-    metrics = providers.Singleton(PipelineMetrics)
-
-    # Pipeline stages (these would be defined in separate modules)
-    # data_ingestion_stage = providers.Factory(DataIngestionStage)
-    # data_validation_stage = providers.Factory(DataValidationStage)
-    # ... etc
-
-    # Pipeline orchestrator
-    pipeline_orchestrator = providers.Factory(
-        PipelineOrchestrator,
-        stages=providers.List(),  # Injected from specific implementations
-        max_parallel=config.pipeline.max_parallel,
-        retry_policy=config.pipeline.retry_policy,
-    )
-
-
-# Context managers for resource management
-@asynccontextmanager
-async def pipeline_execution_context(
-    run_id: str, experiment_id: str, config: Dict[str, Any]
-):
-    """Context manager for pipeline execution"""
-    context = ExecutionContext(
-        run_id=run_id,
-        experiment_id=experiment_id,
-        environment=config.get("environment", "development"),
-        config=config,
-    )
-
-    logger.info("Pipeline context created", run_id=run_id, experiment_id=experiment_id)
-
-    try:
-        yield context
-    finally:
-        logger.info("Pipeline context cleanup", run_id=run_id)
-
-
-# Advanced error handling and circuit breaker pattern
-class CircuitBreaker:
-    """Circuit breaker for pipeline stage resilience"""
-
-    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
-        self.failure_threshold = failure_threshold
-        self.timeout = timeout
-        self.failure_count = 0
-        self.last_failure_time = 0
-        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
-
-    async def call(self, func, *args, **kwargs):
-        """Execute function with circuit breaker protection"""
-        import time
-
-        current_time = time.time()
-
-        if self.state == "OPEN":
-            if current_time - self.last_failure_time > self.timeout:
-                self.state = "HALF_OPEN"
-            else:
-                raise Exception("Circuit breaker is OPEN")
-
-        try:
-            result = await func(*args, **kwargs)
-
-            if self.state == "HALF_OPEN":
-                self.state = "CLOSED"
-                self.failure_count = 0
-
-            return result
-
-        except Exception as e:
-            self.failure_count += 1
-            self.last_failure_time = current_time
-
-            if self.failure_count >= self.failure_threshold:
-                self.state = "OPEN"
-
-            raise e
-
-
-# Usage example with proper separation
-async def main():
-    """Example usage of the enterprise ML pipeline"""
-
-    # This would typically be loaded from configuration files
-    config = {
-        "environment": "production",
-        "pipeline": {
-            "max_parallel": 3,
-            "retry_policy": {"max_retries": 3, "backoff_factor": 2},
-        },
-        "model": {"name": "fraud_detection_v2", "version": "1.0.0"},
-    }
-
-    # Initialize dependency container
-    container = ApplicationContainer()
-    container.config.from_dict(config)
-
-    # This would be populated with actual stage implementations
-    stages = []  # DataIngestionStage(), DataValidationStage(), etc.
-
-    orchestrator = PipelineOrchestrator(stages)
-
-    # Execute pipeline
-    async with pipeline_execution_context("run-001", "exp-001", config) as context:
-        results = await orchestrator.execute_pipeline(context)
-
-        # Process results
-        for stage, result in results.items():
-            if result.status == ExecutionStatus.SUCCESS:
-                logger.info(f"Stage {stage} completed successfully")
-            else:
-                logger.error(f"Stage {stage} failed: {result.error}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+        attempt = 0
+        delay = stage.retry_policy.base_delay
+        while True:
+            attempt += 1
+            result = StageResult(name=stage.name, status=StageStatus.RUNNING)
+            try:
+                result.started_at = time.time()
+                output = await stage.run(context)
+                result.output = output
+                result.status = StageStatus.SUCCESS
+                result.ended_at = time.time()
+                stage.circuit_breaker.record_success()
+                self.metric_duration.labels(stage=stage.name).observe(result.duration)
+                self.metric_success.labels(stage=stage.name).inc()
+                return result
+            except Exception as exc:
+                result.error = exc
+                stage.circuit_breaker.record_failure()
+                self.metric_failure.labels(stage=stage.name).inc()
+                if attempt > stage.retry_policy.max_retries or not stage.circuit_breaker.allow():
+                    result.status = StageStatus.FAILED
+                    result.ended_at = time.time()
+                    return result
+                await asyncio.sleep(delay)
+                delay *= stage.retry_policy.backoff_factor

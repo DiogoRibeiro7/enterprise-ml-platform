@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlp-api
+  namespace: mlp-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlp-api
+  template:
+    metadata:
+      labels:
+        app: mlp-api
+    spec:
+      containers:
+        - name: api
+          image: mlp/api:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ENV
+              value: development
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"

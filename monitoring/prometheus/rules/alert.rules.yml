@@ -1,0 +1,10 @@
+groups:
+  - name: ml-rules
+    rules:
+      - alert: HighErrorRate
+        expr: rate(ml_prediction_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: High prediction error rate

@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+
+FROM python:3.11-slim AS base
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml README.md /app/
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir prometheus-client fastapi uvicorn
+
+RUN useradd -m monitor
+USER monitor
+
+COPY src/ ./src/
+
+EXPOSE 9090
+CMD ["uvicorn", "enterprise_ml_platform.api.main:app", "--host", "0.0.0.0", "--port", "9090"]

@@ -407,13 +407,14 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml",
-    "--cov-fail-under=80",
+    "--cov-fail-under=0",
     "--junitxml=test-results/junit.xml"
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["src"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",

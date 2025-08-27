@@ -5,8 +5,12 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 import pandas as pd
-from dask.distributed import Client
 import structlog
+
+try:  # pragma: no cover - optional dependency
+    from dask.distributed import Client
+except Exception:  # pragma: no cover
+    Client = None  # type: ignore
 
 from .transformers.numerical_transformer import NumericalFeatureTransformer
 from .transformers.categorical_transformer import CategoricalFeatureTransformer
@@ -34,7 +38,7 @@ class FeatureEngineeringService:
         self.config = config
         self.logger = structlog.get_logger(__name__)
         self.client: Optional[Client] = None
-        if config.get("use_dask"):
+        if config.get("use_dask") and Client is not None:
             self.client = Client(processes=False)
 
     async def engineer_features(

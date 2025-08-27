@@ -47,7 +47,18 @@ class EnsembleTrainer(ModelTrainer):
                 )
             return VotingRegressor(estimators=list(self.estimators), **self.params)
 
-    def train(self, features: np.ndarray, targets: np.ndarray) -> BaseEstimator:
+    def train(
+        self,
+        features: np.ndarray,
+        targets: np.ndarray,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> BaseEstimator:
+        """Train the ensemble model.
+
+        Validation arrays are accepted for API compatibility with other
+        trainers but are currently unused.
+        """
         model = self._build_model()
         model.fit(features, targets)
         return model

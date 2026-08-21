@@ -1,4 +1,5 @@
 """API endpoints for managing A/B experiments."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -23,7 +24,7 @@ async def assign(name: str, session_id: str) -> dict:
     try:
         variant = await _manager.get_variant(name, session_id)
     except KeyError as exc:  # pragma: no cover - defensive
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"variant": variant}
 
 

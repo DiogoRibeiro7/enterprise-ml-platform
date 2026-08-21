@@ -8,7 +8,7 @@ from .offline_store import (
     OfflineStore,
     ParquetOfflineStore,
 )
-from .online_store import OnlineFeatureStore
+from .online_store import OnlineFeatureStore, build_key
 from .validators import FeatureSchemaValidator
 
 __all__ = [
@@ -22,4 +22,5 @@ __all__ = [
     "FeatureRegistry",
     "FeatureDescriptor",
     "FeatureSchemaValidator",
+    "build_key",
 ]

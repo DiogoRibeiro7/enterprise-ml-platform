@@ -1,18 +1,19 @@
-from __future__ import annotations
 """High level feature store service orchestrating online/offline stores."""
 
-from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from __future__ import annotations
+
 import datetime as dt
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 import pandas as pd
 import structlog
 
-from .online_store import OnlineFeatureStore
-from .offline_store import OfflineFeatureStore
-from .feature_registry import FeatureRegistry
-from .validators import FeatureSchemaValidator
 from ..monitoring.collectors.metrics_collector import MetricsCollector
+from .feature_registry import FeatureRegistry
+from .offline_store import OfflineStore
+from .online_store import OnlineFeatureStore
+from .validators import FeatureSchemaValidator
 
 
 @dataclass
@@ -21,7 +22,7 @@ class FeatureStoreConfig:
 
     redis_url: str = "redis://localhost:6379/0"
     ttl_seconds: int = 3600
-    feast_repo: Optional[str] = None
+    feast_repo: str | None = None
 
 
 class FeatureStoreService:
@@ -32,8 +33,8 @@ class FeatureStoreService:
         config: FeatureStoreConfig,
         registry: FeatureRegistry,
         online: OnlineFeatureStore,
-        offline: OfflineFeatureStore,
-        validator: Optional[FeatureSchemaValidator] = None,
+        offline: OfflineStore,
+        validator: FeatureSchemaValidator | None = None,
     ) -> None:
         self.config = config
         self.registry = registry
@@ -50,26 +51,31 @@ class FeatureStoreService:
         name: str,
         df: pd.DataFrame,
         *,
-        version: Optional[str] = None,
-        lineage: Optional[Dict[str, str]] = None,
-        correlation_id: Optional[str] = None,
+        version: str | None = None,
+        lineage: dict[str, str] | None = None,
+        correlation_id: str | None = None,
     ) -> str:
         """Register ``df`` as feature set ``name`` and return the version."""
 
         logger = self.logger.bind(correlation_id=correlation_id)
-        version = version or dt.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        schema = {c: str(t) for c, t in df.dtypes.items()}
+        version = version or dt.datetime.now(dt.UTC).strftime("%Y%m%d%H%M%S%f")
+        schema = {str(c): str(t) for c, t in df.dtypes.items()}
         if self.validator:
             self.validator.validate(df)
         self.registry.register(name, version, schema, lineage)
         await self.offline.write_features(name, version, df)
 
-        # Populate online cache for latest snapshot
+        # Populate online cache for this version's snapshot
         if "entity_id" in df.columns:
             for _, row in df.iterrows():
                 entity = str(row["entity_id"])
                 feats = row.drop(labels=["entity_id", "timestamp"], errors="ignore")
-                await self.online.set_features(entity, feats.to_dict())
+                await self.online.set_features(
+                    name,
+                    version,
+                    entity,
+                    {str(k): v for k, v in feats.to_dict().items()},
+                )
 
         if self.feast_repo:
             try:  # pragma: no cover - optional dependency
@@ -82,38 +88,74 @@ class FeatureStoreService:
         return version
 
     # ------------------------------------------------------------------
+    def resolve_version(self, name: str) -> str | None:
+        """Return the latest registered version of ``name``, or ``None``."""
+        try:
+            return self.registry.get(name).version
+        except KeyError:
+            return None
+
+    # ------------------------------------------------------------------
     async def get_online_features(
         self,
         name: str,
         entity_id: str,
         features: Iterable[str],
         *,
-        as_of: Optional[pd.Timestamp] = None,
-        correlation_id: Optional[str] = None,
-    ) -> Dict[str, float]:
-        """Retrieve features for ``entity_id``.
+        version: str | None = None,
+        as_of: pd.Timestamp | None = None,
+        correlation_id: str | None = None,
+    ) -> dict[str, float]:
+        """Retrieve features for ``entity_id`` within feature set ``name``.
+
+        Lookups are always scoped to a single feature set version, so two
+        feature sets sharing an entity id cannot serve each other's values.
+        ``version`` defaults to the latest registered one.
 
         If ``as_of`` is provided the lookup is served from the offline store to
-        enable time travel queries.  Otherwise the online cache is used with a
+        enable time travel queries. Otherwise the online cache is used with a
         fallback to the offline store on cache miss.
         """
 
         logger = self.logger.bind(correlation_id=correlation_id)
-        if as_of is not None:
-            desc = self.registry.get(name)
-            return await self.offline.get_features(name, desc.version, entity_id, as_of)
+        requested = list(features)
+        resolved = version or self.resolve_version(name)
+        if resolved is None:
+            logger.warning("feature_set_not_registered", name=name)
+            return {}
 
-        result = await self.online.get_features(entity_id, features)
+        if as_of is not None:
+            stored = await self.offline.get_features(name, resolved, entity_id, as_of)
+            return self._select(stored, requested)
+
+        result = await self.online.get_features(name, resolved, entity_id, requested)
         if result:
             return result
-        # Cache miss -> fallback to offline store using latest version
-        desc = self.registry.get(name)
-        offline = await self.offline.get_features(name, desc.version, entity_id)
-        if offline:
-            await self.online.set_features(entity_id, offline)
+        # Cache miss -> fall back to the offline store for the same version
+        stored = await self.offline.get_features(name, resolved, entity_id)
+        if stored:
+            await self.online.set_features(name, resolved, entity_id, stored)
         else:
-            logger.warning("feature_not_found", entity_id=entity_id, name=name)
-        return offline
+            logger.warning(
+                "feature_not_found", entity_id=entity_id, name=name, version=resolved
+            )
+        return self._select(stored, requested)
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _select(stored: dict[str, float], requested: Iterable[str]) -> dict[str, float]:
+        """Return the requested subset, or ``{}`` if any feature is missing.
+
+        The online and offline paths must answer the same query identically,
+        otherwise a model silently receives a different feature vector
+        depending on whether the cache happened to be warm.
+        """
+        requested = list(requested)
+        if not requested:
+            return {}
+        if any(name not in stored for name in requested):
+            return {}
+        return {name: stored[name] for name in requested}
 
     # ------------------------------------------------------------------
     async def close(self) -> None:

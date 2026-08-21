@@ -5,6 +5,7 @@ import sys
 import fakeredis.aioredis as fakeredis
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from prometheus_client import CollectorRegistry
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "src"))
 
@@ -23,7 +24,7 @@ API_KEY = {"X-API-Key": "secret"}
 
 
 def _build_feature_store() -> FeatureStoreService:
-    metrics = MetricsCollector()
+    metrics = MetricsCollector(CollectorRegistry())
     redis_client = fakeredis.FakeRedis()
     online = OnlineFeatureStore(redis_client, metrics=metrics)
     offline = OfflineFeatureStore(metrics=metrics)
@@ -33,9 +34,9 @@ def _build_feature_store() -> FeatureStoreService:
 
 
 def _cleanup(store: FeatureStoreService) -> None:
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(store.online.redis.close())
-    loop.run_until_complete(store.close())
+    # asyncio.get_event_loop() raises in a sync context once another test has
+    # closed the loop, so drive the shutdown on a loop of our own.
+    asyncio.run(store.close())
 
 
 def test_feature_store_stats_endpoint():

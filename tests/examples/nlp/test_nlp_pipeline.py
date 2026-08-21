@@ -1,9 +1,16 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from examples.nlp.nlp_pipeline import NLPPipeline
+# This example needs the NLP extras and downloads HuggingFace models on first
+# run. Skip rather than fail the whole collection when they are absent.
+pytest.importorskip("langdetect", reason="NLP example extras not installed")
+pytest.importorskip("transformers", reason="NLP example extras not installed")
+
+from examples.nlp.nlp_pipeline import NLPPipeline  # noqa: E402
 
 
 def test_pipeline_runs():

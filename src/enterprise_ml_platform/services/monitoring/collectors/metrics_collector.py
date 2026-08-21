@@ -1,31 +1,58 @@
 from __future__ import annotations
-from prometheus_client import Counter, Gauge, Histogram
+
+from prometheus_client import REGISTRY, CollectorRegistry, Counter, Gauge, Histogram
+
 
 class MetricsCollector:
-    """Create and update core Prometheus metrics."""
+    """Create and update core Prometheus metrics.
 
-    def __init__(self) -> None:
+    Metrics are registered against ``registry``.  Passing an explicit registry
+    is required whenever more than one collector may live in the same process
+    (tests, multi-tenant workers), because Prometheus refuses to register the
+    same timeseries twice in a single registry.
+    """
+
+    def __init__(self, registry: CollectorRegistry | None = None) -> None:
+        self.registry = registry if registry is not None else REGISTRY
         self.prediction_total = Counter(
-            "ml_predictions_total", "Total predictions", ["model"]
+            "ml_predictions_total",
+            "Total predictions",
+            ["model"],
+            registry=self.registry,
         )
         self.prediction_latency = Histogram(
-            "ml_prediction_latency_seconds", "Prediction latency", ["model"]
+            "ml_prediction_latency_seconds",
+            "Prediction latency",
+            ["model"],
+            registry=self.registry,
         )
-        self.accuracy = Gauge("ml_model_accuracy", "Model accuracy", ["model"])
+        self.accuracy = Gauge(
+            "ml_model_accuracy", "Model accuracy", ["model"], registry=self.registry
+        )
         self.drift = Gauge(
-            "ml_feature_drift_score", "Feature drift score", ["feature"]
+            "ml_feature_drift_score",
+            "Feature drift score",
+            ["feature"],
+            registry=self.registry,
         )
         # Feature store metrics
         self.feature_latency = Histogram(
             "ml_feature_serving_latency_seconds",
             "Latency of feature serving",
             ["store"],
+            registry=self.registry,
         )
         self.feature_cache_hits = Counter(
-            "ml_feature_cache_hits_total", "Feature store cache hits", ["store"]
+            "ml_feature_cache_hits_total",
+            "Feature store cache hits",
+            ["store"],
+            registry=self.registry,
         )
         self.feature_cache_misses = Counter(
-            "ml_feature_cache_misses_total", "Feature store cache misses", ["store"]
+            "ml_feature_cache_misses_total",
+            "Feature store cache misses",
+            ["store"],
+            registry=self.registry,
         )
 
     def record_prediction(self, model: str, latency: float) -> None:

@@ -402,6 +402,7 @@ minversion = "7.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "--import-mode=importlib",
     "--verbose",
     "--tb=short",
     "--cov=enterprise_ml_platform",

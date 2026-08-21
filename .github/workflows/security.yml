@@ -1,0 +1,64 @@
+name: Security
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  schedule:
+    # Dependency advisories appear after a commit lands, so re-check weekly.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-scan:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[lint]"
+
+      - name: bandit
+        run: bandit -c pyproject.toml -r src/enterprise_ml_platform
+
+      - name: Check for hardcoded credentials in the API layer
+        # The app was once built with api_key="secret" and allow_origins=["*"]
+        # written into the source. Configuration belongs in the environment.
+        run: |
+          if grep -rnE '(api_key|password|secret|token)\s*=\s*"[^"]{3,}"' \
+              src/enterprise_ml_platform --include='*.py' \
+              | grep -v 'os.getenv\|_env(' ; then
+            echo "::error::hardcoded credential in source"
+            exit 1
+          fi
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: pip-audit
+        run: pip-audit --strict --progress-spinner off

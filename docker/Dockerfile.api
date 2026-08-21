@@ -1,34 +1,62 @@
 # syntax=docker/dockerfile:1
 
-# Builder stage
-FROM python:3.11-slim AS builder
+# ---------------------------------------------------------------------------
+# Builder: resolve dependencies and build the package into a virtualenv that
+# the runtime stage copies wholesale.
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy project metadata and install
-COPY pyproject.toml README.md /app/
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
+# setuptools-scm derives the version from git metadata, which is not in the
+# build context. Passing it explicitly keeps the image build independent of it.
+ARG VERSION=0.0.0
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
 
-# Runtime stage
-FROM python:3.11-slim
-WORKDIR /app
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+RUN python -m venv "$VIRTUAL_ENV"
 
-# Create non-root user
-RUN useradd -m mlp
-USER mlp
-
-# Copy installed packages from builder
-COPY --from=builder /usr/local /usr/local
+# The sources are needed to build the package, not only its metadata.
+COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
 
-ENV PYTHONPATH=/app/src \
-    APP_MODULE=enterprise_ml_platform.api.main:app \
-    PORT=8000
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir ".[api,feature-store]"
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim
+
+# curl is needed by the healthcheck below, so it has to exist here and not
+# only in the builder stage.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 mlp
+
+COPY --from=builder --chown=mlp:mlp /opt/venv /opt/venv
+
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MLP_HOST=0.0.0.0 \
+    MLP_PORT=8000
+
+USER mlp
+WORKDIR /home/mlp
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fsS "http://localhost:${MLP_PORT}/api/v1/health" || exit 1
 
-CMD ["uvicorn", "enterprise_ml_platform.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# mlp-server reads host and port from MLP_HOST/MLP_PORT, so the bind address
+# is configured in one place rather than duplicated in the command.
+CMD ["mlp-server"]

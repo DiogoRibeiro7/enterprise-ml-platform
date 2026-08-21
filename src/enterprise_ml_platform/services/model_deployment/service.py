@@ -1,26 +1,24 @@
-from __future__ import annotations
-
 """Orchestrator for model deployments across multiple cloud providers."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
 from .deployers import (
     AWSDeployer,
-    AzureDeployer,
-    GCPDeployer,
     BaseDeployer,
-)
-from .strategies import (
-    BlueGreenStrategy,
-    CanaryStrategy,
-    RollingStrategy,
-    DeploymentStrategy,
 )
 from .monitoring.health_checker import DeploymentHealthChecker
 from .rollback.rollback_manager import RollbackManager
+from .strategies import (
+    BlueGreenStrategy,
+    CanaryStrategy,
+    DeploymentStrategy,
+    RollingStrategy,
+)
 
 logger = structlog.get_logger()
 
@@ -31,8 +29,8 @@ class DeploymentConfig:
 
     platform: str
     strategy: str = "blue_green"
-    platform_config: Dict[str, Any] = field(default_factory=dict)
-    strategy_config: Dict[str, Any] = field(default_factory=dict)
+    platform_config: dict[str, Any] = field(default_factory=dict)
+    strategy_config: dict[str, Any] = field(default_factory=dict)
 
 
 class ModelDeploymentService:
@@ -47,7 +45,7 @@ class ModelDeploymentService:
         self,
         model_path: str,
         config: DeploymentConfig,
-        traffic_split: Optional[Dict[str, float]] = None,
+        traffic_split: dict[str, float] | None = None,
     ) -> str:
         """Deploy a model according to ``config``.
 
@@ -77,17 +75,15 @@ class ModelDeploymentService:
         await self.rollback_manager.rollback(endpoint)
 
     # ------------------------------------------------------------------
-    def _build_deployer(self, platform: str, cfg: Dict[str, Any]) -> BaseDeployer:
+    def _build_deployer(self, platform: str, cfg: dict[str, Any]) -> BaseDeployer:
         platform = platform.lower()
         if platform == "aws":
             return AWSDeployer(**cfg)
-        if platform == "gcp":
-            return GCPDeployer(**cfg)
-        if platform == "azure":
-            return AzureDeployer(**cfg)
-        raise ValueError(f"Unsupported platform: {platform}")
+        raise ValueError(
+            f"Unsupported platform: {platform}. Only 'aws' is implemented."
+        )
 
-    def _build_strategy(self, name: str, cfg: Dict[str, Any]) -> DeploymentStrategy:
+    def _build_strategy(self, name: str, cfg: dict[str, Any]) -> DeploymentStrategy:
         name = name.replace("-", "_").lower()
         if name == "blue_green" or name == "bluegreen":
             return BlueGreenStrategy(**cfg)

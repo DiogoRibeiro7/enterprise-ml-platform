@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Rolling deployment strategy."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -21,7 +21,7 @@ class RollingStrategy:
         health_checker: DeploymentHealthChecker,
     ) -> str:
         endpoint = await deployer.deploy(model_path, {})
-        healthy = await health_checker.check(endpoint)
+        healthy = await health_checker.check(endpoint, deployer)
         if not healthy:
             await deployer.delete(endpoint)
             raise RuntimeError("Rolling deployment failed health checks")

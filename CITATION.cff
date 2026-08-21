@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "Enterprise ML Platform"
+abstract: "Enterprise ML Platform is a production-oriented Python framework for building, operating, and monitoring machine learning systems in enterprise environments. The repository provides end-to-end MLOps components for multi-source data ingestion, feature engineering, distributed model training, model registry workflows, deployment automation, observability, drift detection, alerting, and data quality management. It includes API services, command-line tooling, tests, Docker and Kubernetes assets, Terraform infrastructure templates, monitoring dashboards, and example pipelines for domains such as fraud detection, natural language processing, computer vision, and time series forecasting."
+authors:
+  - family-names: "Ribeiro"
+    given-names: "Diogo"
+    affiliation: "ESMAD - Instituto Politécnico do Porto"
+    orcid: "https://orcid.org/0009-0001-2022-7072"
+license: MIT
+repository-code: "https://github.com/diogoribeiro7/enterprise-ml-platform"
+url: "https://diogoribeiro7.github.io/enterprise-ml-platform"
+keywords:
+  - machine-learning
+  - mlops
+  - data-science
+  - artificial-intelligence
+  - enterprise
+  - pipeline
+  - automation
+  - kubernetes
+  - cloud
+  - monitoring

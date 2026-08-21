@@ -1,0 +1,48 @@
+{
+  "title": "Enterprise ML Platform",
+  "upload_type": "software",
+  "publication_date": "2026-08-21",
+  "description": "Enterprise ML Platform is a production-oriented Python framework for building, operating, and monitoring machine learning systems in enterprise environments. The repository provides end-to-end MLOps components for multi-source data ingestion, feature engineering, distributed model training, model registry workflows, deployment automation, observability, drift detection, alerting, and data quality management. It includes API services, command-line tooling, tests, Docker and Kubernetes assets, Terraform infrastructure templates, monitoring dashboards, and example pipelines for domains such as fraud detection, natural language processing, computer vision, and time series forecasting.",
+  "creators": [
+    {
+      "name": "Ribeiro, Diogo",
+      "affiliation": "ESMAD - Instituto Politécnico do Porto",
+      "orcid": "0009-0001-2022-7072",
+      "type": "ProjectLeader"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Ribeiro, Diogo",
+      "affiliation": "ESMAD - Instituto Politécnico do Porto",
+      "orcid": "0009-0001-2022-7072",
+      "type": "ContactPerson"
+    }
+  ],
+  "access_right": "open",
+  "license": "mit",
+  "keywords": [
+    "machine-learning",
+    "mlops",
+    "data-science",
+    "artificial-intelligence",
+    "enterprise",
+    "pipeline",
+    "automation",
+    "kubernetes",
+    "cloud",
+    "monitoring"
+  ],
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/diogoribeiro7/enterprise-ml-platform",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    }
+  ],
+  "references": [
+    "Ribeiro, Diogo. Enterprise ML Platform. GitHub repository. https://github.com/diogoribeiro7/enterprise-ml-platform"
+  ],
+  "notes": "Source code archive for the Enterprise ML Platform Python package and its examples, tests, deployment manifests, monitoring configuration, and infrastructure templates."
+}

@@ -1,11 +1,15 @@
 import numpy as np
 import pytest
 
-from enterprise_ml_platform.services.model_training.optimization.optimizers import BayesianOptimizer
+from enterprise_ml_platform.services.model_training.optimization.distributed import (
+    RayOptimizer,
+)
 from enterprise_ml_platform.services.model_training.optimization.hyperparameter_optimizer import (
     HyperparameterOptimizer,
 )
-from enterprise_ml_platform.services.model_training.optimization.distributed import RayOptimizer
+from enterprise_ml_platform.services.model_training.optimization.optimizers import (
+    BayesianOptimizer,
+)
 
 
 class DummyTrainer:
@@ -56,10 +60,9 @@ async def test_hyperparameter_optimizer_selects_bayesian():
 
 @pytest.mark.asyncio
 async def test_ray_optimizer_optional():
-    try:
-        import ray  # type: ignore
-    except Exception:
-        pytest.skip("ray not installed")
+    # importorskip states the dependency without leaving an "unused" import
+    # that a linter will helpfully delete, taking the guard with it.
+    pytest.importorskip("ray.tune", reason="ray[tune] not installed")
     optimizer = RayOptimizer()
     best = await optimizer.optimize(
         trainer_factory,

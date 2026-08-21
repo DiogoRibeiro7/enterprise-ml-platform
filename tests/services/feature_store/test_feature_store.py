@@ -1,7 +1,11 @@
+import fakeredis.aioredis as fakeredis
 import pandas as pd
 import pytest
-import fakeredis.aioredis as fakeredis
+from prometheus_client import CollectorRegistry
 
+from enterprise_ml_platform.services.feature_engineering import (
+    FeatureEngineeringService,
+)
 from enterprise_ml_platform.services.feature_store import (
     FeatureRegistry,
     FeatureStoreConfig,
@@ -11,9 +15,6 @@ from enterprise_ml_platform.services.feature_store import (
 )
 from enterprise_ml_platform.services.monitoring.collectors.metrics_collector import (
     MetricsCollector,
-)
-from enterprise_ml_platform.services.feature_engineering import (
-    FeatureEngineeringService,
 )
 
 
@@ -33,7 +34,7 @@ def sample_data():
 
 @pytest.mark.asyncio
 async def test_online_feature_store_serving() -> None:
-    metrics = MetricsCollector()
+    metrics = MetricsCollector(CollectorRegistry())
     redis_client = fakeredis.FakeRedis()
     online = OnlineFeatureStore(redis_client, metrics=metrics, ttl_seconds=60)
     offline = OfflineFeatureStore(metrics=metrics)
@@ -55,7 +56,7 @@ async def test_online_feature_store_serving() -> None:
 async def test_feature_engineering_integration(sample_data) -> None:
     df, target = sample_data
     df["entity_id"] = [str(i) for i in range(len(df))]
-    metrics = MetricsCollector()
+    metrics = MetricsCollector(CollectorRegistry())
     redis_client = fakeredis.FakeRedis()
     online = OnlineFeatureStore(redis_client, metrics=metrics, ttl_seconds=60)
     offline = OfflineFeatureStore(metrics=metrics)

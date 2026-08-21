@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -27,7 +26,8 @@ class AuditLogger:
     def __post_init__(self) -> None:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         if self.log_file.exists():
-            try:\n                *_, last = self.log_file.read_text().splitlines()
+            try:
+                *_, last = self.log_file.read_text().splitlines()
                 self._last_hash = json.loads(last)["hash"]
             except Exception:  # pragma: no cover - best effort
                 self._last_hash = ""
@@ -35,7 +35,7 @@ class AuditLogger:
     def log(self, event: str, **payload: Any) -> None:
         """Log an ``event`` with optional ``payload`` data."""
 
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "event": event,
             "payload": payload,
@@ -47,4 +47,3 @@ class AuditLogger:
         with self.log_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry) + "\n")
         self._last_hash = entry_hash
-

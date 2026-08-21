@@ -203,7 +203,14 @@ class ModelTrainingService:
             self.last_run_id = run.info.run_id
             try:
                 info = mlflow.sklearn.log_model(
-                    model, name="model", input_example=X[:1]
+                    model,
+                    name="model",
+                    input_example=X[:1],
+                    # Pin the format. MLflow picks skops when it happens to be
+                    # installed, and skops refuses to serialise types it does
+                    # not trust, so the artifact would be logged or silently
+                    # skipped depending on what else is in the environment.
+                    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
                 )
                 self.last_model_uri = info.model_uri
             except Exception as exc:  # pragma: no cover - flavour mismatch

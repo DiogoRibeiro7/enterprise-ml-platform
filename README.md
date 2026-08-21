@@ -1,554 +1,197 @@
 # Enterprise ML Platform
 
-[![CI/CD Pipeline](https://github.com/diogoribeiro7/enterprise-ml-platform/workflows/CI/badge.svg)](https://github.com/diogoribeiro7/enterprise-ml-platform/actions)
-[![Security Scan](https://github.com/diogoribeiro7/enterprise-ml-platform/workflows/Security/badge.svg)](https://github.com/diogoribeiro7/enterprise-ml-platform/actions)
+[![CI](https://github.com/DiogoRibeiro7/enterprise-ml-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/DiogoRibeiro7/enterprise-ml-platform/actions/workflows/ci.yml)
+[![Security](https://github.com/DiogoRibeiro7/enterprise-ml-platform/actions/workflows/security.yml/badge.svg)](https://github.com/DiogoRibeiro7/enterprise-ml-platform/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/diogoribeiro7/enterprise-ml-platform)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue.svg)](https://kubernetes.io/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0001--2022--7072-green.svg)](https://orcid.org/0009-0001-2022-7072)
 
-A comprehensive, production-ready machine learning platform designed for enterprise environments. This platform provides end-to-end MLOps capabilities including automated data ingestion, advanced feature engineering, distributed model training, multi-cloud deployment, and comprehensive monitoring.
+A reference implementation of a production ML platform: reproducible training,
+versioned features, a model registry with alias-based promotion, an HTTP
+serving layer, and controlled deployment to SageMaker.
 
-## 🚀 Features
+It is a study of how these pieces fit together, not a product. The section
+below says exactly which parts are implemented and covered by tests and which
+are scaffolding, because a platform that reports success it never achieved is
+worse than one that admits the gap.
 
-### **Core Capabilities**
-- **🔄 Automated ML Pipeline** - End-to-end orchestration from data to deployment
-- **📊 Multi-Source Data Ingestion** - S3, PostgreSQL, Kafka, APIs with parallel processing
-- **🛠️ Advanced Feature Engineering** - Automated feature selection, transformation, and interaction discovery
-- **🤖 Distributed Model Training** - XGBoost, LightGBM, ensemble methods with hyperparameter optimization
-- **☁️ Multi-Cloud Deployment** - AWS SageMaker, GCP AI Platform, Azure ML, Kubernetes
-- **📈 Comprehensive Monitoring** - Drift detection, performance monitoring, data quality assessment
-- **🚨 Intelligent Alerting** - Multi-channel notifications (Email, Slack, PagerDuty, SMS)
+## What is implemented
 
-### **Enterprise Features**
-- **🔐 Security First** - Encryption, secrets management, audit trails
-- **📏 Scalability** - Distributed processing, auto-scaling, resource optimization
-- **🔍 Observability** - Structured logging, metrics, tracing, dashboards
-- **🧪 Testing** - Unit, integration, performance, and end-to-end tests
-- **📚 Documentation** - Comprehensive guides for users, developers, and operators
-- **🔄 CI/CD Ready** - GitHub Actions, Docker, Kubernetes, Terraform integration
+| Capability | State | Where |
+| --- | --- | --- |
+| Pipeline orchestration — DAG validation, bounded concurrency, retries, circuit breaker, cancellation and compensating rollback | **Implemented, tested** | [core/pipeline_orchestrator.py](src/enterprise_ml_platform/core/pipeline_orchestrator.py) |
+| Online feature store — Redis, namespaced by feature set and version, TTL, all-or-nothing reads | **Implemented, tested** | [feature_store/online_store.py](src/enterprise_ml_platform/services/feature_store/online_store.py) |
+| Offline feature store — Parquet queried through DuckDB, point-in-time correctness, survives restarts | **Implemented, tested** | [feature_store/offline_store.py](src/enterprise_ml_platform/services/feature_store/offline_store.py) |
+| Model registry — MLflow versions, `champion`/`challenger` aliases, promotion and rollback | **Implemented, tested** | [model_registry/mlflow_registry.py](src/enterprise_ml_platform/services/model_registry/mlflow_registry.py) |
+| Experiment tracking — scoped runs, logged params, metrics and model artifacts | **Implemented, tested** | [model_training/service.py](src/enterprise_ml_platform/services/model_training/service.py) |
+| Serving — FastAPI, inference off the event loop, schema validation, batch limits, version in every response | **Implemented, tested** | [api/routers/predictions.py](src/enterprise_ml_platform/api/routers/predictions.py) |
+| API configuration — API key, CORS and limits from the environment, with deployment guardrails | **Implemented, tested** | [api/config.py](src/enterprise_ml_platform/api/config.py) |
+| SageMaker deployment — model, endpoint config and endpoint lifecycle, traffic weights, rollback to a previous config | **Implemented, tested against a stubbed AWS API** | [deployers/aws_deployer.py](src/enterprise_ml_platform/services/model_deployment/deployers/aws_deployer.py) |
+| Feature engineering — numerical, categorical and temporal transformers, with identifiers carried through untransformed | **Implemented, partially tested** | [feature_engineering/](src/enterprise_ml_platform/services/feature_engineering/) |
+| Drift detection, A/B testing, streaming, resource management | Implemented, thinly tested | [services/](src/enterprise_ml_platform/services/) |
+| Distributed training (Ray, Dask, Spark) | Interfaces only, no scale testing | [services/distributed/](src/enterprise_ml_platform/services/distributed/) |
+| Security and compliance (RBAC, GDPR, HIPAA, PII) | Scaffolding, not an audited implementation | [security/](src/enterprise_ml_platform/security/) |
+| Kubernetes manifests, Terraform modules, Grafana dashboards | Present, never applied by CI | [kubernetes/](kubernetes/), [terraform/](terraform/), [monitoring/](monitoring/) |
+| Domain examples (fraud, NLP, vision, time series) | Thin wrappers, illustrative only | [examples/](examples/) |
+| Deployment to GCP or Azure | **Removed.** They logged and returned a plausible URL without calling anything | — |
+| Model export to ONNX and friends | **Not implemented.** Raises rather than returning a fake path | [model_exporter.py](src/enterprise_ml_platform/services/model_registry/export/model_exporter.py) |
 
-## 🏗️ Architecture
+CI runs ruff, mypy, the full test suite on Python 3.11–3.13, a packaging smoke
+test that installs the built wheel and runs the console scripts, a Docker
+build, bandit and a dependency audit.
+
+## The lifecycle it demonstrates
 
 ```mermaid
-graph TB
-    subgraph "Data Sources"
-        S3[S3 Buckets]
-        DB[Databases]
-        API[APIs]
-        Kafka[Kafka Streams]
-    end
-    
-    subgraph "ML Platform"
-        DI[Data Ingestion Service]
-        FE[Feature Engineering Service]
-        MT[Model Training Service]
-        MD[Model Deployment Service]
-        MON[Monitoring Service]
-    end
-    
-    subgraph "Infrastructure"
-        K8S[Kubernetes Cluster]
-        MLFlow[MLflow Registry]
-        FS[Feature Store]
-        Prom[Prometheus]
-        Graf[Grafana]
-    end
-    
-    S3 --> DI
-    DB --> DI
-    API --> DI
-    Kafka --> DI
-    
-    DI --> FE
-    FE --> MT
-    MT --> MD
-    MD --> MON
-    
-    MT --> MLFlow
-    FE --> FS
-    MON --> Prom
-    Prom --> Graf
-    
-    MD --> K8S
+graph LR
+    D[Dataset] --> FE[Feature engineering]
+    FE --> OFF[(Offline store<br/>Parquet + DuckDB)]
+    OFF --> T[Training]
+    T --> MLF[MLflow run<br/>params, metrics, artifact]
+    MLF --> REG[Model registry<br/>version N]
+    REG -->|promote alias| CH[champion]
+    CH --> API[FastAPI serving]
+    ON[(Online store<br/>Redis)] --> API
+    OFF -.point-in-time.-> T
+    API --> M[Prometheus metrics]
+    REG -->|rollback alias| CH
 ```
 
-## 📁 Project Structure
+Two properties are worth calling out, because they are what separate this from
+a training script:
 
-```
-enterprise-ml-platform/
-├── 📄 README.md
-├── 📄 LICENSE
-├── 📄 .gitignore
-├── 📄 pyproject.toml
-├── 📄 setup.py
-│
-├── 🔧 .github/                          # GitHub workflows and templates
-│   ├── workflows/
-│   │   ├── ci.yml                       # Continuous Integration
-│   │   ├── cd.yml                       # Continuous Deployment
-│   │   ├── security-scan.yml            # Security scanning
-│   │   └── dependency-update.yml        # Automated dependency updates
-│   ├── ISSUE_TEMPLATE/                  # Issue templates
-│   └── PULL_REQUEST_TEMPLATE.md         # PR template
-│
-├── 📦 requirements/                      # Python dependencies
-│   ├── base.txt                         # Core dependencies
-│   ├── development.txt                  # Development dependencies
-│   ├── production.txt                   # Production dependencies
-│   └── testing.txt                      # Testing dependencies
-│
-├── 🐳 docker/                           # Docker configurations
-│   ├── Dockerfile.api                   # API service container
-│   ├── Dockerfile.training              # Training service container
-│   ├── Dockerfile.monitoring            # Monitoring service container
-│   └── docker-compose.yml               # Local development stack
-│
-├── ☸️ kubernetes/                       # Kubernetes manifests
-│   ├── namespaces/                      # Namespace definitions
-│   ├── deployments/                     # Deployment manifests
-│   ├── services/                        # Service definitions
-│   ├── configmaps/                      # Configuration maps
-│   ├── secrets/                         # Secret templates
-│   └── monitoring/                      # Monitoring stack
-│
-├── 🏗️ terraform/                        # Infrastructure as Code
-│   ├── environments/
-│   │   ├── dev/                         # Development environment
-│   │   ├── staging/                     # Staging environment
-│   │   └── production/                  # Production environment
-│   ├── modules/                         # Reusable Terraform modules
-│   │   ├── vpc/                         # VPC module
-│   │   ├── eks/                         # EKS cluster module
-│   │   ├── rds/                         # RDS database module
-│   │   └── s3/                          # S3 bucket module
-│   └── main.tf                          # Main Terraform configuration
-│
-├── ⚙️ config/                           # Configuration files
-│   ├── base.yaml                        # Base configuration
-│   ├── development.yaml                 # Development overrides
-│   ├── staging.yaml                     # Staging overrides
-│   ├── production.yaml                  # Production overrides
-│   └── logging.yaml                     # Logging configuration
-│
-├── 💻 src/                              # Source code
-│   └── enterprise_ml_platform/
-│       ├── 📁 core/                     # Core framework components
-│       │   ├── pipeline_orchestrator.py # Main orchestration engine
-│       │   ├── base_components.py       # Base classes and interfaces
-│       │   ├── exceptions.py            # Custom exceptions
-│       │   ├── logging_config.py        # Logging configuration
-│       │   └── container.py             # Dependency injection container
-│       │
-│       ├── 🔧 services/                 # Business logic services
-│       │   ├── 📥 data_ingestion/       # Data ingestion service
-│       │   │   ├── service.py           # Main ingestion service
-│       │   │   ├── connectors/          # Data source connectors
-│       │   │   │   ├── s3_connector.py  # Amazon S3 connector
-│       │   │   │   ├── postgres_connector.py # PostgreSQL connector
-│       │   │   │   ├── kafka_connector.py # Kafka stream connector
-│       │   │   │   └── api_connector.py # REST API connector
-│       │   │   ├── validators/          # Data validation components
-│       │   │   └── factories.py         # Factory classes
-│       │   │
-│       │   ├── 🛠️ feature_engineering/  # Feature engineering service
-│       │   │   ├── service.py           # Main feature service
-│       │   │   ├── transformers/        # Feature transformers
-│       │   │   │   ├── numerical_transformer.py # Numerical features
-│       │   │   │   ├── categorical_transformer.py # Categorical features
-│       │   │   │   ├── temporal_transformer.py # Time-based features
-│       │   │   │   └── composite_transformer.py # Complex features
-│       │   │   ├── selectors/           # Feature selection algorithms
-│       │   │   └── pipeline_stage.py    # Pipeline integration
-│       │   │
-│       │   ├── 🤖 model_training/       # Model training service
-│       │   │   ├── service.py           # Main training service
-│       │   │   ├── trainers/            # Algorithm-specific trainers
-│       │   │   │   ├── xgboost_trainer.py # XGBoost implementation
-│       │   │   │   ├── lightgbm_trainer.py # LightGBM implementation
-│       │   │   │   ├── ensemble_trainer.py # Ensemble methods
-│       │   │   │   └── neural_trainer.py # Neural networks
-│       │   │   ├── optimization/        # Hyperparameter optimization
-│       │   │   ├── explainability/      # Model explainability
-│       │   │   └── pipeline_stage.py    # Pipeline integration
-│       │   │
-│       │   ├── 🚀 model_deployment/     # Model deployment service
-│       │   │   ├── service.py           # Main deployment service
-│       │   │   ├── deployers/           # Platform-specific deployers
-│       │   │   │   ├── kubernetes_deployer.py # Kubernetes deployment
-│       │   │   │   ├── sagemaker_deployer.py # AWS SageMaker
-│       │   │   │   ├── gcp_deployer.py  # Google Cloud AI Platform
-│       │   │   │   └── azure_deployer.py # Azure ML
-│       │   │   ├── strategies/          # Deployment strategies
-│       │   │   │   ├── blue_green.py    # Blue-green deployment
-│       │   │   │   ├── canary.py        # Canary deployment
-│       │   │   │   └── rolling.py       # Rolling deployment
-│       │   │   └── pipeline_stage.py    # Pipeline integration
-│       │   │
-│       │   └── 📊 monitoring/           # Monitoring and observability
-│       │       ├── service.py           # Main monitoring service
-│       │       ├── drift_detection/     # Data/model drift detection
-│       │       ├── performance/         # Performance monitoring
-│       │       ├── data_quality/        # Data quality assessment
-│       │       ├── alerting/            # Alert management
-│       │       └── pipeline_stage.py    # Pipeline integration
-│       │
-│       ├── 🌐 api/                      # REST API service
-│       │   ├── main.py                  # FastAPI application
-│       │   ├── routers/                 # API route handlers
-│       │   ├── dependencies.py          # Dependency injection
-│       │   ├── middleware.py            # Custom middleware
-│       │   └── schemas/                 # Pydantic schemas
-│       │
-│       ├── 💻 cli/                      # Command-line interface
-│       │   ├── main.py                  # CLI entry point
-│       │   ├── commands/                # CLI command implementations
-│       │   └── utils.py                 # CLI utilities
-│       │
-│       └── 🛠️ utils/                    # Shared utilities
-│           ├── config_loader.py         # Configuration management
-│           ├── database.py              # Database utilities
-│           ├── storage.py               # Storage abstractions
-│           ├── encryption.py            # Encryption utilities
-│           └── monitoring_utils.py      # Monitoring helpers
-│
-├── 🧪 tests/                            # Test suite
-│   ├── conftest.py                      # PyTest configuration
-│   ├── unit/                            # Unit tests
-│   ├── integration/                     # Integration tests
-│   ├── performance/                     # Performance tests
-│   └── fixtures/                        # Test data and fixtures
-│
-├── 📚 docs/                             # Documentation
-│   ├── architecture/                    # Architecture documentation
-│   ├── user_guide/                      # User guides
-│   ├── developer_guide/                 # Developer documentation
-│   ├── operations/                      # Operations guides
-│   └── examples/                        # Usage examples
-│
-├── 📜 scripts/                          # Automation scripts
-│   ├── setup_dev_environment.sh         # Development setup
-│   ├── build_docker_images.sh          # Docker build automation
-│   ├── deploy_to_k8s.sh                # Kubernetes deployment
-│   ├── run_tests.sh                     # Test execution
-│   └── monitoring_setup.sh             # Monitoring stack setup
-│
-├── 📈 monitoring/                       # Monitoring configurations
-│   ├── grafana/                         # Grafana dashboards
-│   ├── prometheus/                      # Prometheus rules
-│   └── alertmanager/                    # Alert manager config
-│
-├── 💡 examples/                         # Real-world examples
-│   ├── fraud_detection/                 # Fraud detection pipeline
-│   ├── recommendation_system/           # Recommendation system
-│   └── time_series_forecasting/         # Time series forecasting
-│
-├── 🗄️ migrations/                       # Database migrations
-│   ├── database/                        # Database schema migrations
-│   └── model_registry/                  # Model registry migrations
-│
-└── 🔧 tools/                            # Development tools
-    ├── data_generators/                 # Test data generators
-    ├── model_converters/                # Model format converters
-    └── performance_profilers/           # Performance profiling tools
-```
+**Point-in-time retrieval.** The offline store answers *what did this entity
+look like at time T*, so a training set never contains a value recorded after
+the label it is paired with. Verified in
+[test_offline_store.py](tests/services/feature_store/test_offline_store.py).
 
-## 🚀 Quick Start
+**Promotion is a metadata operation.** Serving resolves
+`models:/{name}@champion`. Moving the alias changes which model answers, with
+no redeploy and no code change, and rollback moves it back. Verified in
+[test_mlflow_registry.py](tests/services/model_registry/test_mlflow_registry.py).
 
-### Prerequisites
+## Quickstart
 
-- Python 3.9+
-- Docker & Docker Compose
-- Kubernetes cluster (optional)
-- Cloud provider account (AWS/GCP/Azure) (optional)
-
-### 1. Clone and Setup
+Requires Python 3.11 or newer.
 
 ```bash
-git clone https://github.com/diogoribeiro7/enterprise-ml-platform.git
+git clone https://github.com/DiogoRibeiro7/enterprise-ml-platform.git
 cd enterprise-ml-platform
-
-# Setup development environment
-./scripts/setup_dev_environment.sh
-```
-
-### 2. Install Dependencies
-
-```bash
-# Install in development mode
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-
-# Or using Poetry
-poetry install --with dev
-```
-
-### 3. Configure the Platform
-
-```bash
-# Copy and customize configuration
-cp config/development.yaml.example config/development.yaml
-# Edit config/development.yaml with your settings
-```
-
-### 4. Start Local Development Stack
-
-```bash
-# Start supporting services (PostgreSQL, Redis, MLflow, etc.)
-docker-compose up -d
-
-# Run the platform
-python -m enterprise_ml_platform.cli pipeline run --config config/development.yaml
-```
-
-### 5. Access the Platform
-
-- **API Documentation**: http://localhost:8000/docs
-- **MLflow UI**: http://localhost:5000
-- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
-- **Prometheus Metrics**: http://localhost:9090
-
-## 📖 Usage Examples
-
-### Basic Pipeline Execution
-
-```python
-from enterprise_ml_platform.core.pipeline_orchestrator import CompleteMLPipelineOrchestrator
-
-# Initialize pipeline with configuration
-config = {
-    "data_ingestion": {
-        "sources": [
-            {
-                "name": "transactions",
-                "type": "s3",
-                "config": {"bucket": "ml-data", "prefix": "transactions/"}
-            }
-        ]
-    },
-    "model_training": {
-        "algorithms": ["xgboost", "lightgbm"],
-        "optimization": {"enabled": True, "trials": 100}
-    },
-    "deployment": {
-        "platform": "kubernetes",
-        "strategy": "blue_green"
-    }
-}
-
-# Execute pipeline
-orchestrator = CompleteMLPipelineOrchestrator(config)
-results = await orchestrator.execute_complete_pipeline()
-print(f"Pipeline completed: {results['overall_success']}")
-```
-
-### CLI Usage
-
-```bash
-# Run a complete pipeline
-mlp pipeline run --config config/production.yaml --run-id prod-001
-
-# Deploy a specific model
-mlp deploy --model fraud-detector --version v1.2.0 --platform kubernetes
-
-# Monitor model performance
-mlp monitor --model fraud-detector --metrics accuracy,drift --dashboard
-
-# Check system health
-mlp health --detailed
-```
-
-### API Usage
-
-```bash
-# Start prediction service
-curl -X POST "http://localhost:8000/api/v1/predict" \
-  -H "Content-Type: application/json" \
-  -d '{"features": {"amount": 100.0, "merchant": "store_123"}}'
-
-# Get model metrics
-curl "http://localhost:8000/api/v1/models/fraud-detector/metrics"
-
-# Trigger pipeline
-curl -X POST "http://localhost:8000/api/v1/pipelines/run" \
-  -H "Content-Type: application/json" \
-  -d '{"config_name": "production", "run_id": "api-001"}'
-```
-
-## 🏭 Production Deployment
-
-### Kubernetes Deployment
-
-```bash
-# Build and push Docker images
-./scripts/build_docker_images.sh
-
-# Deploy to Kubernetes
-kubectl apply -f kubernetes/namespaces/
-kubectl apply -f kubernetes/deployments/
-kubectl apply -f kubernetes/services/
-
-# Setup monitoring
-kubectl apply -f kubernetes/monitoring/
-```
-
-### AWS Deployment with Terraform
-
-```bash
-cd terraform/environments/production
-
-# Initialize Terraform
-terraform init
-
-# Plan deployment
-terraform plan -var-file="production.tfvars"
-
-# Deploy infrastructure
-terraform apply -var-file="production.tfvars"
-```
-
-### Multi-Cloud Setup
-
-The platform supports deployment across multiple cloud providers:
-
-- **AWS**: SageMaker, EKS, S3, RDS
-- **Google Cloud**: AI Platform, GKE, Cloud Storage, Cloud SQL  
-- **Azure**: Machine Learning, AKS, Blob Storage, Azure SQL
-- **On-Premises**: Kubernetes, MinIO, PostgreSQL
-
-## 📊 Monitoring & Observability
-
-### Metrics & Dashboards
-
-- **Model Performance**: Accuracy, precision, recall, F1-score trends
-- **Data Quality**: Completeness, validity, consistency, timeliness
-- **Drift Detection**: Statistical and ML-based drift monitoring
-- **System Health**: Resource usage, latency, throughput, errors
-- **Business KPIs**: Custom metrics aligned with business objectives
-
-### Alerting Channels
-
-- **Email**: SMTP integration with customizable templates
-- **Slack**: Rich notifications with actionable buttons
-- **PagerDuty**: Integration for critical production alerts
-- **SMS**: Twilio integration for urgent notifications
-- **Webhooks**: Custom integrations with external systems
-
-### Log Analytics
-
-- **Structured Logging**: JSON-formatted logs with correlation IDs
-- **Centralized Collection**: ELK Stack (Elasticsearch, Logstash, Kibana)
-- **Real-time Analysis**: Log streaming and alerting
-- **Audit Trail**: Complete pipeline execution tracking
-
-## 🧪 Testing
-
-### Run Test Suite
-
-```bash
-# Run all tests
 pytest
-
-# Run with coverage
-pytest --cov=enterprise_ml_platform --cov-report=html
-
-# Run specific test categories
-pytest tests/unit/          # Unit tests
-pytest tests/integration/   # Integration tests
-pytest tests/performance/   # Performance tests
-
-# Run tests in parallel
-pytest -n auto
 ```
 
-### Performance Testing
+Run the API against the built-in demo model:
 
 ```bash
-# Load testing for API
-locust -f tests/performance/api_load_test.py --host http://localhost:8000
-
-# Pipeline performance benchmarking
-python tests/performance/pipeline_benchmark.py
+export MLP_API_KEY=local-dev-key
+mlp-server
 ```
 
-## 🤝 Contributing
+```bash
+curl -X POST localhost:8000/api/v1/models/iris/load -H "X-API-Key: local-dev-key"
+curl -X POST localhost:8000/api/v1/predict \
+  -H "X-API-Key: local-dev-key" -H "Content-Type: application/json" \
+  -d '{"model_name": "iris", "features": [5.1, 3.5, 1.4, 0.2]}'
+```
 
-We welcome contributions! Please see our [Contributing Guide](docs/developer_guide/contributing.md) for details.
+```json
+{"predictions": [0.0], "model_name": "iris", "model_version": "demo", "latency_ms": 0.9}
+```
 
-### Development Workflow
+`model_version` is `demo` because no registry is configured: the model is
+fitted at load time and is gone on restart. Point `MLP_MODEL_REGISTRY_URI` at
+an MLflow registry and the same endpoint serves the promoted champion instead,
+reporting its real version.
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and add tests
-4. Run the test suite: `pytest`
-5. Commit your changes: `git commit -m 'Add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+## Installation
 
-### Code Standards
+The core install is small. Each subsystem is an extra, so you install the
+parts you actually run:
 
-- **Python**: Follow PEP 8, use type hints, docstrings required
-- **Testing**: Minimum 80% code coverage, tests required for new features
-- **Documentation**: Update docs for any user-facing changes
-- **Security**: Run security scans, no secrets in code
+```bash
+pip install enterprise-ml-platform                          # core
+pip install "enterprise-ml-platform[api,feature-store]"      # serving + Parquet store
+pip install "enterprise-ml-platform[api,training,aws]"       # + MLflow + SageMaker
+```
 
-## 📄 License
+| Extra | Brings |
+| --- | --- |
+| `api` | FastAPI serving layer |
+| `feature-store` | DuckDB, for the Parquet offline store |
+| `training` | MLflow, Optuna, XGBoost, LightGBM |
+| `explainability` | SHAP, LIME |
+| `aws` | boto3, for SageMaker and S3 |
+| `streaming` | Kafka clients |
+| `distributed` | Ray, Dask |
+| `data` | asyncpg, SQLAlchemy |
+| `deep-learning` | torch, transformers (used by the NLP examples) |
+| `dev` | everything needed to run the test suite |
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Configuration
 
-## 🆘 Support
+Every setting is read from the environment. Nothing is baked into the source.
 
-### Documentation
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MLP_ENVIRONMENT` | `development` | Anything else is treated as a deployment and held to stricter rules |
+| `MLP_API_KEY` | unset | Key required in `X-API-Key`. Unset disables authentication, which only development permits |
+| `MLP_CORS_ORIGINS` | none | Comma-separated exact origins. `*` is refused outside development |
+| `MLP_RATE_LIMIT_PER_MINUTE` | `120` | Requests per client per minute |
+| `MLP_REQUEST_TIMEOUT_SECONDS` | `30` | Seconds before an in-flight request is aborted |
+| `MLP_MAX_BATCH_SIZE` | `1000` | Largest accepted batch prediction |
+| `MLP_MODEL_REGISTRY_URI` | unset | MLflow registry. Required outside development |
+| `MLP_MODEL_ALIAS` | `champion` | Alias the serving layer resolves |
+| `MLP_ALLOW_DEMO_MODELS` | `true` in development | Refused outside development |
+| `MLP_FEATURE_STORE_REDIS_URL` | `redis://localhost:6379/0` | Online store |
+| `MLP_FEATURE_STORE_OFFLINE_PATH` | unset | Parquet root. Unset means an in-memory store that does not survive a restart |
+| `MLP_HOST` / `MLP_PORT` | `127.0.0.1` / `8000` | Bind address |
+| `MLFLOW_TRACKING_URI` | unset | Training logs nothing unless this is set |
 
-- **Architecture**: [docs/architecture/](docs/architecture/)
-- **User Guide**: [docs/user_guide/](docs/user_guide/)
-- **API Reference**: [docs/api/](docs/api/)
-- **Troubleshooting**: [docs/user_guide/troubleshooting.md](docs/user_guide/troubleshooting.md)
+Starting the API with `MLP_ENVIRONMENT=production` fails immediately if the
+API key is missing, CORS is `*`, demo models are enabled, or no registry is
+configured. A misconfigured deployment refuses to start rather than serving
+something it should not.
 
-### Community & Support
+## Layout
 
-- **Issues**: [GitHub Issues](https://github.com/diogoribeiro7/enterprise-ml-platform/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/diogoribeiro7/enterprise-ml-platform/discussions)
-- **Email**: [diogo.debastos.ribeiro@gmail.com](mailto:diogo.debastos.ribeiro@gmail.com)
-- **Professional Contact**: [dfr@esmad.ipp.pt](mailto:dfr@esmad.ipp.pt)
-- **ORCID**: [0009-0001-2022-7072](https://orcid.org/0009-0001-2022-7072)
+```text
+src/enterprise_ml_platform/
+├── api/              # FastAPI app, settings, middleware, routers
+├── cli/              # `mlp` command
+├── core/             # pipeline orchestrator, base components, exceptions
+├── security/         # auth, encryption, audit, compliance scaffolding
+├── services/
+│   ├── data_ingestion/      # S3, Postgres, Kafka connectors
+│   ├── feature_engineering/ # transformers and selection
+│   ├── feature_store/       # online (Redis) and offline (Parquet/DuckDB)
+│   ├── model_training/      # trainers, optimisation, MLflow tracking
+│   ├── model_registry/      # MLflow registry, aliases, promotion
+│   ├── model_deployment/    # SageMaker deployer, strategies, rollback
+│   ├── monitoring/          # drift detection, alerting, metrics
+│   ├── ab_testing/          # experiment assignment and analysis
+│   └── streaming/           # Kafka consumers, windowing, online learning
+└── utils/
+```
 
-### Contributing
+## Development
 
-We welcome contributions! Please see our [Contributing Guide](docs/developer_guide/contributing.md) for details.
+```bash
+pytest                                  # the full suite
+ruff check src tests                    # lint
+ruff format src tests                   # format
+mypy src/enterprise_ml_platform         # type check
+bandit -c pyproject.toml -r src/enterprise_ml_platform
+```
 
-**Author**: [Diogo Ribeiro](https://github.com/diogoribeiro7) - Research and Development in Machine Learning and AI Systems
+Tests are pinned to a throwaway MLflow store and the suite fails if anything
+writes tracking data into the working tree.
 
-For questions, suggestions, or collaboration opportunities, feel free to reach out!
+## License
 
-## 🚀 Roadmap
+MIT. See [LICENSE](LICENSE).
 
-### Current Release (v2.0)
-- ✅ Core pipeline orchestration
-- ✅ Multi-cloud deployment support
-- ✅ Advanced monitoring and alerting
-- ✅ Comprehensive testing suite
+## Author
 
-### Next Release (v2.1) - Q2 2024
-- 🔄 Real-time streaming pipelines
-- 🔄 AutoML integration
-- 🔄 Advanced A/B testing framework
-- 🔄 Enhanced security features
-
-### Future Releases
-- 📋 MLOps marketplace for custom components
-- 📋 Advanced interpretability dashboard
-- 📋 Federated learning support
-- 📋 Edge deployment capabilities
-
----
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=diogoribeiro7/enterprise-ml-platform&type=Date)](https://star-history.com/#diogoribeiro7/enterprise-ml-platform&Date)
-
----
-
-**Built with ❤️ by [Diogo Ribeiro](https://github.com/diogoribeiro7)**
-
-*Advancing the state of MLOps through enterprise-grade solutions*
+Diogo Ribeiro — [ORCID 0009-0001-2022-7072](https://orcid.org/0009-0001-2022-7072)

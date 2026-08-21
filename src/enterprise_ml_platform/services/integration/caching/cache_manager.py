@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict
 import time
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
 class CacheManager:
     """Very small TTL based cache used by the gateway."""
 
-    store: Dict[str, tuple[Any, float]] = field(default_factory=dict)
+    store: dict[str, tuple[Any, float]] = field(default_factory=dict)
 
     def get(self, key: str) -> Any | None:
         item = self.store.get(key)

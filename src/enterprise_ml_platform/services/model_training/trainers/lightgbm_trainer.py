@@ -1,13 +1,13 @@
-from __future__ import annotations
-
 """LightGBM model trainer."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
-from sklearn.metrics import accuracy_score, r2_score
 import structlog
+from sklearn.metrics import accuracy_score, r2_score
 
 try:  # pragma: no cover - optional dependency
     import lightgbm as lgb
@@ -23,15 +23,15 @@ logger = structlog.get_logger()
 class LightGBMTrainer(ModelTrainer):
     """Trainer for LightGBM models."""
 
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     distributed: bool = False
 
     def train(
         self,
         features: np.ndarray,
         targets: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
     ) -> Any:
         if lgb is None:  # pragma: no cover - runtime check
             raise ImportError("lightgbm is required for LightGBMTrainer")
@@ -40,7 +40,7 @@ class LightGBMTrainer(ModelTrainer):
         model_cls = lgb.LGBMClassifier if is_classification else lgb.LGBMRegressor
         model = model_cls(**self.params)
 
-        fit_kwargs: Dict[str, Any] = {}
+        fit_kwargs: dict[str, Any] = {}
         if X_val is not None and y_val is not None:
             fit_kwargs["eval_set"] = [(X_val, y_val)]
             fit_kwargs["eval_metric"] = "logloss" if is_classification else "l2"
@@ -51,7 +51,7 @@ class LightGBMTrainer(ModelTrainer):
 
     def evaluate(
         self, model: Any, features: np.ndarray, targets: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         preds = model.predict(features)
         if len(np.unique(targets)) < 20:
             preds = (preds > 0.5).astype(int)
@@ -61,10 +61,12 @@ class LightGBMTrainer(ModelTrainer):
     def save(self, model: Any, path: str) -> None:
         model.booster_.save_model(path)
 
-    def feature_importance(self, model: Any) -> Dict[str, float]:
+    def feature_importance(self, model: Any) -> dict[str, float]:
         if lgb is None:
             return {}
         return {
             k: float(v)
-            for k, v in zip(model.feature_name_, model.feature_importances_)
+            for k, v in zip(
+                model.feature_name_, model.feature_importances_, strict=True
+            )
         }

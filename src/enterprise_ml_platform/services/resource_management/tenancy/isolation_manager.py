@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Namespace isolation stub for multi-tenancy."""
+
+from __future__ import annotations
 
 
 class IsolationManager:

@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Ray cluster management utilities.
 
 This module provides a very small wrapper around ``ray`` to keep the rest of
@@ -8,7 +7,10 @@ available the implementation gracefully falls back to local execution so the
 package can be used in lightweight environments (like the tests for this kata).
 """
 
-from typing import Any, Callable
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 

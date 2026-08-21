@@ -8,10 +8,8 @@ services such as AWS KMS or Azure Key Vault.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
 import os
+from dataclasses import dataclass
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -35,7 +33,9 @@ class DataEncryption:
         if len(self.key) != 32:
             raise ValueError("AES‑256 requires 32 byte keys")
 
-    def encrypt_at_rest(self, data: bytes, *, associated_data: bytes | None = None) -> tuple[bytes, bytes]:
+    def encrypt_at_rest(
+        self, data: bytes, *, associated_data: bytes | None = None
+    ) -> tuple[bytes, bytes]:
         """Encrypt ``data`` for storage.
 
         Parameters
@@ -57,7 +57,9 @@ class DataEncryption:
         ciphertext = aesgcm.encrypt(nonce, data, associated_data)
         return nonce, ciphertext
 
-    def decrypt_at_rest(self, nonce: bytes, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
+    def decrypt_at_rest(
+        self, nonce: bytes, ciphertext: bytes, *, associated_data: bytes | None = None
+    ) -> bytes:
         """Decrypt data previously encrypted with :meth:`encrypt_at_rest`."""
 
         aesgcm = AESGCM(self.key)
@@ -73,4 +75,3 @@ class DataEncryption:
 
         nonce, ciphertext = self.encrypt_at_rest(data)
         return nonce + ciphertext
-

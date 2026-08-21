@@ -1,9 +1,10 @@
 """Window management for streaming aggregates."""
+
 from __future__ import annotations
 
 import collections
 import time
-from typing import Any, Deque, Dict, List
+from typing import Any
 
 import structlog
 
@@ -16,16 +17,18 @@ class WindowManager:
     def __init__(self, window_size: float, step: float | None = None) -> None:
         self.window_size = window_size
         self.step = step or window_size
-        self.buffer: Deque[tuple[float, Dict[str, Any]]] = collections.deque()
+        self.buffer: collections.deque[tuple[float, dict[str, Any]]] = (
+            collections.deque()
+        )
         self.logger = logger.bind(component="window-manager")
 
-    async def apply(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    async def apply(self, features: dict[str, Any]) -> dict[str, Any]:
         """Add features to window and return aggregated features."""
         now = time.time()
         self.buffer.append((now, features))
         while self.buffer and now - self.buffer[0][0] > self.window_size:
             self.buffer.popleft()
-        agg: Dict[str, Any] = {}
+        agg: dict[str, Any] = {}
         for _, feat in self.buffer:
             for key, value in feat.items():
                 agg[key] = agg.get(key, 0) + value

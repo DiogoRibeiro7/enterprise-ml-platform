@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Compare model versions based on stored metrics."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict, Tuple, Any
 
 
 @dataclass
@@ -12,10 +11,10 @@ class ModelComparator:
 
     def compare(
         self,
-        metrics: Dict[Tuple[str, str], Dict[str, float]],
-        model_a: Tuple[str, str],
-        model_b: Tuple[str, str],
-    ) -> Dict[str, float]:
+        metrics: dict[tuple[str, str], dict[str, float]],
+        model_a: tuple[str, str],
+        model_b: tuple[str, str],
+    ) -> dict[str, float]:
         """Return metric deltas ``a - b`` for matching keys."""
 
         ma = metrics.get(model_a, {})

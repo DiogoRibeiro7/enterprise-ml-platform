@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Dynamic scaling logic based on utilization targets."""
+
+from __future__ import annotations
 
 
 class DynamicScaler:

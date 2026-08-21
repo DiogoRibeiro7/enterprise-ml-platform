@@ -1,8 +1,9 @@
 """Route traffic to experiment variants with session consistency."""
+
 from __future__ import annotations
 
 import random
-from typing import Dict, Any
+from typing import Any
 
 
 class TrafficRouter:
@@ -10,9 +11,9 @@ class TrafficRouter:
 
     def __init__(self, cfg) -> None:
         self.cfg = cfg
-        self._session_map: Dict[str, str] = {}
+        self._session_map: dict[str, str] = {}
 
-    def route(self, session_id: str, attributes: Dict[str, Any]) -> str:
+    def route(self, session_id: str, attributes: dict[str, Any]) -> str:
         if session_id in self._session_map:
             return self._session_map[session_id]
 
@@ -37,5 +38,5 @@ class TrafficRouter:
                 return variant
         return variant  # pragma: no cover - fallback
 
-    def update_split(self, new_split: Dict[str, float]) -> None:
+    def update_split(self, new_split: dict[str, float]) -> None:
         self.cfg.traffic_split = new_split

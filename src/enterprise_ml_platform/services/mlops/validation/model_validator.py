@@ -1,14 +1,10 @@
 """Model validation utilities."""
-from __future__ import annotations
 
-from typing import Dict
+from __future__ import annotations
 
 
 class ModelValidator:
     """Validate metrics against simple threshold rules."""
 
-    def validate(self, metrics: Dict[str, float], thresholds: Dict[str, float]) -> bool:
-        for key, limit in thresholds.items():
-            if metrics.get(key, 0.0) < limit:
-                return False
-        return True
+    def validate(self, metrics: dict[str, float], thresholds: dict[str, float]) -> bool:
+        return all(metrics.get(key, 0.0) >= limit for key, limit in thresholds.items())

@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Utilities for managing semantic versions of registered models."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -16,12 +15,12 @@ class VersionManager:
     allows explicit bumps of any segment.
     """
 
-    versions: Dict[str, List[str]] = field(default_factory=dict)
+    versions: dict[str, list[str]] = field(default_factory=dict)
 
     def next_version(
         self,
         model: str,
-        bump: Tuple[int, int, int] | None = None,
+        bump: tuple[int, int, int] | None = None,
     ) -> str:
         """Return the next semantic version for ``model``.
 

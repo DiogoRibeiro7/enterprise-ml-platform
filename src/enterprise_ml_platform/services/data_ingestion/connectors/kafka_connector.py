@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -31,7 +32,7 @@ class KafkaConnector(AsyncDataConnector):
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
         self.consumer_kwargs = consumer_kwargs
-        self._consumer: Optional[AIOKafkaConsumer] = None
+        self._consumer: AIOKafkaConsumer | None = None
         self._log = structlog.get_logger().bind(connector="kafka")
 
     async def connect(self) -> None:
@@ -62,7 +63,9 @@ class KafkaConnector(AsyncDataConnector):
             raise RuntimeError("Connector not connected")
 
         while True:
-            msgs = await self._consumer.getmany(timeout_ms=timeout_ms, max_records=batch_size)
+            msgs = await self._consumer.getmany(
+                timeout_ms=timeout_ms, max_records=batch_size
+            )
             batch = []
             for _tp, records in msgs.items():
                 for msg in records:

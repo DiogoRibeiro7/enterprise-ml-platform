@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Allocate and release GPU resources."""
+
+from __future__ import annotations
 
 
 class GPUScheduler:

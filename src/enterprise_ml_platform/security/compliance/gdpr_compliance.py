@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict
 
 
 @dataclass
@@ -14,8 +13,8 @@ class GDPRCompliance:
     dedicated compliance tooling and legal workflows.
     """
 
-    consent_registry: Dict[str, bool] = field(default_factory=dict)
-    deletion_requests: Dict[str, bool] = field(default_factory=dict)
+    consent_registry: dict[str, bool] = field(default_factory=dict)
+    deletion_requests: dict[str, bool] = field(default_factory=dict)
 
     def record_consent(self, user_id: str, granted: bool) -> None:
         self.consent_registry[user_id] = granted
@@ -28,4 +27,3 @@ class GDPRCompliance:
 
     def should_delete(self, user_id: str) -> bool:
         return self.deletion_requests.get(user_id, False)
-

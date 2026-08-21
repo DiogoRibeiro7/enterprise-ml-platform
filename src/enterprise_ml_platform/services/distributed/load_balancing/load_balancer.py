@@ -1,7 +1,6 @@
-from __future__ import annotations
 """Minimal load balancer for cluster managers."""
 
-from typing import Dict
+from __future__ import annotations
 
 import structlog
 
@@ -17,7 +16,7 @@ class LoadBalancer:
     but that would be overkill for the purposes of this repository.
     """
 
-    def __init__(self, managers: Dict[str, object]) -> None:
+    def __init__(self, managers: dict[str, object]) -> None:
         self.managers = managers
 
     def choose_manager(self, framework: str):

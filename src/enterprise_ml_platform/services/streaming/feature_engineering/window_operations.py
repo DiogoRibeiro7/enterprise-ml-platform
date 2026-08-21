@@ -1,9 +1,10 @@
 """Sliding window aggregations for streaming features."""
+
 from __future__ import annotations
 
 import collections
 import time
-from typing import Any, Deque, Dict
+from typing import Any
 
 
 class TimeWindowAggregator:
@@ -12,9 +13,9 @@ class TimeWindowAggregator:
     def __init__(self, field: str, window_size: float) -> None:
         self.field = field
         self.window_size = window_size
-        self.buffer: Deque[tuple[float, float]] = collections.deque()
+        self.buffer: collections.deque[tuple[float, float]] = collections.deque()
 
-    async def apply(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    async def apply(self, features: dict[str, Any]) -> dict[str, Any]:
         now = time.time()
         value = features.get(self.field)
         if value is not None:
@@ -33,9 +34,9 @@ class CountWindowAggregator:
     def __init__(self, field: str, count: int) -> None:
         self.field = field
         self.count = count
-        self.buffer: Deque[float] = collections.deque(maxlen=count)
+        self.buffer: collections.deque[float] = collections.deque(maxlen=count)
 
-    async def apply(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    async def apply(self, features: dict[str, Any]) -> dict[str, Any]:
         value = features.get(self.field)
         if value is not None:
             self.buffer.append(float(value))

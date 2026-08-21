@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
-from typing import Optional
 
 import structlog
+from structlog.typing import Processor
 
 # Context variable used to store correlation IDs
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
@@ -36,14 +36,16 @@ def get_correlation_id() -> str:
     return _correlation_id.get()
 
 
-def configure_logging(*, log_level: int = logging.INFO, log_file: Optional[str] = None) -> None:
+def configure_logging(
+    *, log_level: int = logging.INFO, log_file: str | None = None
+) -> None:
     """Configure application-wide structured logging.
 
     Args:
         log_level: Logging level for all handlers.
         log_file: Optional file path for a dedicated ``FileHandler``.
     """
-    processors = [
+    processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.stdlib.add_log_level,

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Advanced performance tracking for production monitoring.
 
 The :class:`PerformanceTracker` extends the basic :class:`PerformanceMonitor`
@@ -8,9 +6,10 @@ correlation hooks.  The implementation is intentionally lightweight yet
 illustrates how a production-ready tracker could be structured.
 """
 
+from __future__ import annotations
+
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Deque, Dict, Iterable, List
 
 import numpy as np
 
@@ -26,9 +25,11 @@ class PerformanceTracker:
 
     def __init__(self, window: int = 100) -> None:
         self.window = window
-        self.history: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window))
-        self.variants: Dict[str, List[float]] = defaultdict(list)
-        self.kpis: Dict[str, float] = {}
+        self.history: dict[str, deque[float]] = defaultdict(
+            lambda: deque(maxlen=window)
+        )
+        self.variants: dict[str, list[float]] = defaultdict(list)
+        self.kpis: dict[str, float] = {}
 
     def update(self, model: str, actual: float, predicted: float) -> float:
         correct = 1.0 if actual == predicted else 0.0

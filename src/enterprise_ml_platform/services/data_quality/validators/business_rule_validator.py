@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List
 
 import pandas as pd
 
@@ -14,12 +14,12 @@ Rule = Callable[[pd.DataFrame], Iterable[str]]
 class BusinessRuleValidator:
     """Apply domain specific validation rules to a dataset."""
 
-    rules: List[Rule] = field(default_factory=list)
+    rules: list[Rule] = field(default_factory=list)
 
-    def validate(self, df: pd.DataFrame) -> List[str]:
+    def validate(self, df: pd.DataFrame) -> list[str]:
         """Run all configured rules against ``df``."""
 
-        errors: List[str] = []
+        errors: list[str] = []
         for rule in self.rules:
             errors.extend(list(rule(df)))
         return errors

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import structlog
@@ -14,8 +14,8 @@ class ValidationReport:
     """Outcome of a validation run."""
 
     passed: bool
-    errors: List[str]
-    stats: Dict[str, Any]
+    errors: list[str]
+    stats: dict[str, Any]
 
 
 class DataValidator:
@@ -25,17 +25,17 @@ class DataValidator:
     and optionally infers a reference schema for subsequent batches.
     """
 
-    def __init__(self, schema: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, schema: dict[str, str] | None = None) -> None:
         self.schema = schema or {}
         self._log = structlog.get_logger().bind(component="data_validator")
 
-    def infer_schema(self, frame: pd.DataFrame) -> Dict[str, str]:
+    def infer_schema(self, frame: pd.DataFrame) -> dict[str, str]:
         """Infer a schema mapping column names to dtypes."""
         self.schema = {col: str(dtype) for col, dtype in frame.dtypes.items()}
         return self.schema
 
     async def validate(
-        self, frame: pd.DataFrame, rules: Optional[List[Dict[str, Any]]] = None
+        self, frame: pd.DataFrame, rules: list[dict[str, Any]] | None = None
     ) -> pd.DataFrame:
         """Validate ``frame`` according to ``rules``.
 
@@ -47,7 +47,7 @@ class DataValidator:
         ``custom``: Executes a user provided callable.
         """
 
-        errors: List[str] = []
+        errors: list[str] = []
 
         if not self.schema:
             self.infer_schema(frame)

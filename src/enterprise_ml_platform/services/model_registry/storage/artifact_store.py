@@ -1,16 +1,16 @@
-from __future__ import annotations
-
 """Minimal model artifact storage."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple
+from typing import Any
 
 
 @dataclass
 class ArtifactStore:
     """In-memory artifact registry."""
 
-    artifacts: Dict[Tuple[str, str], Any] = field(default_factory=dict)
+    artifacts: dict[tuple[str, str], Any] = field(default_factory=dict)
 
     def save(self, name: str, version: str, artifact: Any) -> None:
         """Persist a model artifact."""

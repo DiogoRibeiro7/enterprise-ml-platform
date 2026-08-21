@@ -1,4 +1,5 @@
 """Health check and metrics endpoints."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response
@@ -23,7 +24,9 @@ async def health_detailed(
 ) -> HealthStatus:
     """Detailed health check with model information."""
 
-    return HealthStatus(status="ok", details={"models_loaded": str(len(registry.list_models()))})
+    return HealthStatus(
+        status="ok", details={"models_loaded": str(len(registry.list_models()))}
+    )
 
 
 @router.get("/metrics")

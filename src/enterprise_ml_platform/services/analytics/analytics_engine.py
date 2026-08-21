@@ -7,19 +7,21 @@ composed.  Heavy lifting such as persistence, authentication or real
 visualisation rendering would be provided by specialised services in a
 full deployment.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any
 
+from .alerts.kpi_alerting import KPIAlerting
 from .dashboards.dashboard_builder import DashboardBuilder
+from .export.data_exporter import DataExporter
+from .intelligence.insight_engine import InsightEngine
 from .metrics.business_metrics import BusinessMetrics
 from .reporting.report_generator import ReportGenerator
-from .visualization.chart_builder import ChartBuilder
-from .intelligence.insight_engine import InsightEngine
-from .export.data_exporter import DataExporter
 from .scheduling.report_scheduler import ReportScheduler
-from .alerts.kpi_alerting import KPIAlerting
+from .visualization.chart_builder import ChartBuilder
 
 
 @dataclass
@@ -41,7 +43,11 @@ class AnalyticsEngine:
     scheduler: ReportScheduler = field(default_factory=ReportScheduler)
     alerting: KPIAlerting = field(default_factory=KPIAlerting)
 
-    def run(self, data: Iterable[Dict[str, Any]], kpi_thresholds: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+    def run(
+        self,
+        data: Iterable[dict[str, Any]],
+        kpi_thresholds: dict[str, float] | None = None,
+    ) -> dict[str, Any]:
         """Execute a full analytics cycle on ``data``.
 
         Args:
@@ -71,6 +77,8 @@ class AnalyticsEngine:
         """Register a reporting job with the internal scheduler."""
         self.scheduler.add_job(cron, job)
 
-    def export(self, data: Iterable[Dict[str, Any]], path: str, fmt: str = "csv") -> None:
+    def export(
+        self, data: Iterable[dict[str, Any]], path: str, fmt: str = "csv"
+    ) -> None:
         """Convenience wrapper around :class:`DataExporter`."""
         self.exporter.export(data, path, fmt)

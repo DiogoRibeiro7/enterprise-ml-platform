@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Minimal email notification client."""
+
+from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass

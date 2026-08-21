@@ -1,11 +1,12 @@
 """Configuration management commands."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import typer
-from rich.console import Console
 import yaml
+from rich.console import Console
 
 from enterprise_ml_platform.core.exceptions import ConfigurationError
 from enterprise_ml_platform.utils.config_loader import load_config
@@ -30,7 +31,10 @@ def validate(config: Path) -> None:
 
 
 @app.command()
-def init(template: str = typer.Option("basic"), output: Path = typer.Option(Path("config.yaml"))) -> None:
+def init(
+    template: str = typer.Option("basic"),
+    output: Path = typer.Option(Path("config.yaml")),
+) -> None:
     """Create a configuration file from a template.
 
     Args:

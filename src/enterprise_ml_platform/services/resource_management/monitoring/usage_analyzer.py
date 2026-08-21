@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Analyze resource usage trends."""
 
+from __future__ import annotations
+
 from collections import defaultdict, deque
-from typing import Deque, Dict
 
 
 class UsageAnalyzer:
@@ -11,7 +10,7 @@ class UsageAnalyzer:
 
     def __init__(self, window: int = 5) -> None:
         self.window = window
-        self._usage: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window))
+        self._usage: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=window))
 
     def record_usage(self, project: str, metric: str, value: float) -> None:
         self._usage[f"{project}:{metric}"].append(value)

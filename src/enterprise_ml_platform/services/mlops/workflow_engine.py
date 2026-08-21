@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Minimal MLOps workflow orchestration engine.
 
 This module glues together the various helper components that make up the
@@ -10,18 +8,20 @@ rollbacks.  The engine is intentionally synchronous and in‑memory so it can be
 used in unit tests without external services.
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Any
+from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
+from typing import Any
+
+from .approval.approval_workflow import ApprovalWorkflow
 from .ci_cd.pipeline_builder import PipelineBuilder
-from .testing.automated_testing import AutomatedTesting
-from .validation.model_validator import ModelValidator
 from .deployment.deployment_automator import DeploymentAutomator
+from .experimentation.experiment_tracker import ExperimentTracker
 from .monitoring.pipeline_monitor import PipelineMonitor
 from .rollback.rollback_automator import RollbackAutomator
-from .experimentation.experiment_tracker import ExperimentTracker
-from .approval.approval_workflow import ApprovalWorkflow
-
+from .testing.automated_testing import AutomatedTesting
+from .validation.model_validator import ModelValidator
 
 Step = Callable[[Any], Any]
 
@@ -43,11 +43,11 @@ class WorkflowEngine:
         self,
         initial_model: Any,
         *,
-        steps: Optional[Iterable[Step]] = None,
-        test_data: Optional[Tuple[Any, Any]] = None,
-        validation_thresholds: Optional[Dict[str, float]] = None,
+        steps: Iterable[Step] | None = None,
+        test_data: tuple[Any, Any] | None = None,
+        validation_thresholds: dict[str, float] | None = None,
         environment: str = "dev",
-    ) -> Tuple[str, Dict[str, float]]:
+    ) -> tuple[str, dict[str, float]]:
         """Execute an end‑to‑end workflow.
 
         Args:

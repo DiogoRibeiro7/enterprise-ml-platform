@@ -1,7 +1,8 @@
-from __future__ import annotations
 """Simple failure detection hooks."""
 
-from typing import Callable, List
+from __future__ import annotations
+
+from collections.abc import Callable
 
 import structlog
 
@@ -12,7 +13,7 @@ class FailureDetector:
     """Dispatch failure notifications to registered callbacks."""
 
     def __init__(self) -> None:
-        self._callbacks: List[Callable[[str, Exception], None]] = []
+        self._callbacks: list[Callable[[str, Exception], None]] = []
 
     def register(self, callback: Callable[[str, Exception], None]) -> None:
         self._callbacks.append(callback)

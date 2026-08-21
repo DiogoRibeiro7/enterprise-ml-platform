@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Allocate tracked costs to tenants."""
+
+from __future__ import annotations
 
 from ..monitoring.cost_tracker import CostTracker
 

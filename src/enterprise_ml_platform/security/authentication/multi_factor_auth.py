@@ -32,7 +32,7 @@ class MultiFactorAuth:
         offset = digest[-1] & 0x0F
         truncated = digest[offset : offset + 4]
         code = struct.unpack("!I", truncated)[0] & 0x7FFFFFFF
-        return str(code % (10 ** self.digits)).zfill(self.digits)
+        return str(code % (10**self.digits)).zfill(self.digits)
 
     def verify(self, secret: str, code: str, at_time: int | None = None) -> bool:
         """Verify that ``code`` is valid for ``secret``."""
@@ -44,4 +44,3 @@ class MultiFactorAuth:
             if hmac.compare_digest(expected, code):
                 return True
         return False
-

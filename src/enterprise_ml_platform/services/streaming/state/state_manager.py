@@ -1,7 +1,8 @@
 """State management utilities for streaming pipelines."""
+
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 
@@ -12,7 +13,7 @@ class StateManager:
     """Simple in-memory state store with async interface."""
 
     def __init__(self) -> None:
-        self._state: Dict[str, Any] = {}
+        self._state: dict[str, Any] = {}
         self.logger = logger.bind(component="state-manager")
 
     async def get(self, key: str) -> Any:
@@ -21,7 +22,7 @@ class StateManager:
     async def set(self, key: str, value: Any) -> None:
         self._state[key] = value
 
-    async def update_state(self, event: Dict[str, Any]) -> None:
+    async def update_state(self, event: dict[str, Any]) -> None:
         """Example state update using event data."""
         if "id" in event:
             await self.set(event["id"], event)

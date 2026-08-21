@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Placeholder for model compression logic."""
+
+from __future__ import annotations
 
 
 class ModelOptimizer:

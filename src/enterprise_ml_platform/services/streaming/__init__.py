@@ -1,18 +1,18 @@
 """Real-time streaming ML pipeline components."""
 
-from .stream_processor import StreamProcessor, StreamConfig
-from .feature_engineering import (
-    StreamFeatureEngine,
-    TimeWindowAggregator,
-    CountWindowAggregator,
-    StreamJoiner,
-)
 from .continuous_learning import (
-    OnlineLearner,
-    IncrementalTrainer,
     DriftAdapter,
+    IncrementalTrainer,
     ModelWarmer,
+    OnlineLearner,
 )
+from .feature_engineering import (
+    CountWindowAggregator,
+    StreamFeatureEngine,
+    StreamJoiner,
+    TimeWindowAggregator,
+)
+from .stream_processor import StreamConfig, StreamProcessor
 
 __all__ = [
     "StreamProcessor",

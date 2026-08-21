@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Any
 
 import pandas as pd
 
@@ -12,7 +12,7 @@ import pandas as pd
 class DataProfiler:
     """Generate simple statistical profiles for a DataFrame."""
 
-    def profile(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def profile(self, df: pd.DataFrame) -> dict[str, Any]:
         """Return summary statistics for ``df``."""
 
         summary = {

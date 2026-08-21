@@ -1,17 +1,17 @@
 """Multi-armed bandit strategy using epsilon-greedy."""
+
 from __future__ import annotations
 
 import random
-from typing import Dict
 
 
 class EpsilonGreedyBandit:
     def __init__(self, epsilon: float = 0.1) -> None:
         self.epsilon = epsilon
-        self.counts: Dict[str, int] = {}
-        self.values: Dict[str, float] = {}
+        self.counts: dict[str, int] = {}
+        self.values: dict[str, float] = {}
 
-    def select(self, variants: Dict[str, float]) -> str:
+    def select(self, variants: dict[str, float]) -> str:
         for v in variants:
             self.counts.setdefault(v, 0)
             self.values.setdefault(v, 0.0)

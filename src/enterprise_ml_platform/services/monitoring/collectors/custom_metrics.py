@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Custom metrics shared across the platform."""
+
+from __future__ import annotations
 
 from prometheus_client import Gauge
 

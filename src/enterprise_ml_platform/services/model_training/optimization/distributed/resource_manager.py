@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Simple resource manager for distributed optimisation."""
 
-from dataclasses import dataclass
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass
 
 try:  # pragma: no cover - optional dependency
     import torch

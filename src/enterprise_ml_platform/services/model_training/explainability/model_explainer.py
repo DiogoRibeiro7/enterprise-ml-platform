@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Model explainability utilities."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import structlog
@@ -26,8 +26,8 @@ class ModelExplainer:
     """Compute model explanations using SHAP or LIME."""
 
     def explain(
-        self, model: Any, features: np.ndarray, config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, model: Any, features: np.ndarray, config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         config = config or {}
         method = config.get("method", "shap")
         if method == "shap":

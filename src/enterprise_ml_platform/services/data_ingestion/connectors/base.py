@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Dict
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -25,8 +26,12 @@ class AsyncDataConnector(ABC):
         """Close any open connections and cleanup resources."""
 
     @abstractmethod
-    async def read(self, **config: Dict[str, Any]) -> AsyncIterator[pd.DataFrame]:
+    def read(self, **config: Any) -> AsyncIterator[pd.DataFrame]:
         """Stream data from the source.
+
+        Implementations are async generators, so calling this returns the
+        iterator directly rather than a coroutine that yields one.
+
 
         Args:
             **config: Connector specific read options.

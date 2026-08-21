@@ -1,8 +1,8 @@
-from __future__ import annotations
-
 """Real-time feature transformation utilities."""
 
-from typing import Any, Dict
+from __future__ import annotations
+
+from typing import Any
 
 import structlog
 
@@ -15,7 +15,7 @@ class StreamTransformer:
     def __init__(self) -> None:
         self.logger = logger.bind(component="stream-transformer")
 
-    async def transform(self, event: Dict[str, Any]) -> Dict[str, Any]:
+    async def transform(self, event: dict[str, Any]) -> dict[str, Any]:
         """Transform raw event into model-ready features.
 
         Parameters

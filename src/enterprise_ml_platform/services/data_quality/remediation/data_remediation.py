@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 import pandas as pd
 
@@ -12,7 +11,7 @@ import pandas as pd
 class DataRemediation:
     """Apply simple fixes for common data quality issues."""
 
-    def remediate(self, df: pd.DataFrame, issues: List[str]) -> pd.DataFrame:
+    def remediate(self, df: pd.DataFrame, issues: list[str]) -> pd.DataFrame:
         """Return a corrected DataFrame based on ``issues``."""
 
         result = df.copy()

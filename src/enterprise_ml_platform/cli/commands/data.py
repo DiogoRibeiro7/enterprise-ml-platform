@@ -1,4 +1,5 @@
 """Data management commands."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,7 +15,7 @@ app = typer.Typer(help="Data ingestion and validation utilities.")
 @app.command()
 def ingest(
     source: str = typer.Option(..., help="Source location"),
-    target: Path = typer.Option(Path("."), help="Target directory"),
+    target: Path = typer.Option(Path(), help="Target directory"),
 ) -> None:
     """Ingest data from various sources.
 
@@ -61,7 +62,9 @@ def transform(data: Path, config: Path) -> None:
 
 
 @app.command()
-def split(data: Path, ratios: str = typer.Option("0.8,0.1,0.1", help="Train/val/test ratios")) -> None:
+def split(
+    data: Path, ratios: str = typer.Option("0.8,0.1,0.1", help="Train/val/test ratios")
+) -> None:
     """Split dataset into train/validation/test sets.
 
     Args:

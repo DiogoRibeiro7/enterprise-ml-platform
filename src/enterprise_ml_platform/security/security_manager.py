@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List
 
 from .access_control.rbac_manager import RBACManager
 from .audit.audit_logger import AuditLogger
@@ -73,7 +72,7 @@ class SecurityManager:
             # placeholder for deletion logic
 
     # Scanning -------------------------------------------------------
-    def scan(self, packages: List[str]) -> dict[str, List[str]]:
+    def scan(self, packages: list[str]) -> dict[str, list[str]]:
         findings = self.scanner.scan_dependencies(packages)
         self.audit.log("scan", findings=findings)
         return findings
@@ -92,4 +91,3 @@ class SecurityManager:
         """Encrypt a model artifact."""
 
         return self.encrypt(model_bytes)
-

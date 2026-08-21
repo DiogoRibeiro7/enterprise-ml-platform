@@ -14,7 +14,9 @@ from enterprise_ml_platform.services.streaming.feature_engineering import (
 async def test_stream_feature_engine_enriches_and_windows() -> None:
     joiner = StreamJoiner("user_id", {"u1": {"age": 30}})
     window = TimeWindowAggregator("value", window_size=0.5)
-    engine = StreamFeatureEngine(window_ops=[window], joiners=[joiner], cache=FeatureCache())
+    engine = StreamFeatureEngine(
+        window_ops=[window], joiners=[joiner], cache=FeatureCache()
+    )
 
     features1 = await engine.compute({"entity_id": "u1", "user_id": "u1", "value": 1.0})
     assert features1["age"] == 30

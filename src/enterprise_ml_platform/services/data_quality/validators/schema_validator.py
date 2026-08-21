@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
 
 import pandas as pd
 
@@ -17,9 +16,9 @@ class SchemaValidator:
     integrating with an external schema registry if required.
     """
 
-    schema: Dict[str, str]
+    schema: dict[str, str]
 
-    def validate(self, df: pd.DataFrame) -> List[str]:
+    def validate(self, df: pd.DataFrame) -> list[str]:
         """Validate ``df`` against the configured ``schema``.
 
         Args:
@@ -30,7 +29,7 @@ class SchemaValidator:
             list indicates the data conforms to the schema.
         """
 
-        errors: List[str] = []
+        errors: list[str] = []
         for column, expected_dtype in self.schema.items():
             if column not in df.columns:
                 errors.append(f"missing column: {column}")
@@ -43,7 +42,7 @@ class SchemaValidator:
         return errors
 
     @classmethod
-    def infer_schema(cls, df: pd.DataFrame) -> Dict[str, str]:
+    def infer_schema(cls, df: pd.DataFrame) -> dict[str, str]:
         """Infer a simple schema mapping from ``df``."""
 
         return {col: str(dtype) for col, dtype in df.dtypes.items()}

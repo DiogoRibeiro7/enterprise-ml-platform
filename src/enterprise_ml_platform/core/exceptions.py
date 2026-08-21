@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 class MLPlatformError(Exception):
     """Base exception for all platform errors."""
 
-    def __init__(self, message: str, *, cause: Optional[BaseException] = None) -> None:
+    def __init__(self, message: str, *, cause: BaseException | None = None) -> None:
         """Initialize the error.
 
         Args:

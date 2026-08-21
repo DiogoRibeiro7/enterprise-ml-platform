@@ -1,16 +1,16 @@
 """Simple Thompson sampling for Bernoulli rewards."""
+
 from __future__ import annotations
 
 import numpy as np
-from typing import Dict
 
 
 class ThompsonSamplingStrategy:
     def __init__(self) -> None:
-        self.successes: Dict[str, int] = {}
-        self.failures: Dict[str, int] = {}
+        self.successes: dict[str, int] = {}
+        self.failures: dict[str, int] = {}
 
-    def select(self, variants: Dict[str, float]) -> str:
+    def select(self, variants: dict[str, float]) -> str:
         for v in variants:
             self.successes.setdefault(v, 1)
             self.failures.setdefault(v, 1)

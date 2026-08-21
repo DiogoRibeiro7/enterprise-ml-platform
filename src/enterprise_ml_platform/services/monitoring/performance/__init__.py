@@ -1,6 +1,6 @@
 """Model performance monitoring utilities."""
 
-from .performance_monitor import PerformanceMonitor
 from .degradation_detector import DegradationDetector
+from .performance_monitor import PerformanceMonitor
 
 __all__ = ["PerformanceMonitor", "DegradationDetector"]

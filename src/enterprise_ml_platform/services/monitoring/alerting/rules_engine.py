@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Evaluate alerting rules against metric values."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Sequence
 
 
 @dataclass
@@ -35,14 +35,17 @@ class RulesEngine:
     def add_rule(self, rule: AlertRule) -> None:
         self.rules.append(rule)
 
-    def evaluate(self, metrics: Dict[str, float]) -> List[Alert]:
-        alerts: List[Alert] = []
+    def evaluate(self, metrics: dict[str, float]) -> list[Alert]:
+        alerts: list[Alert] = []
         for rule in self.rules:
             value = metrics.get(rule.metric)
             if value is None:
                 continue
             if self._compare(value, rule.threshold, rule.operator):
-                msg = rule.message or f"{rule.metric} {value} {rule.operator} {rule.threshold}"
+                msg = (
+                    rule.message
+                    or f"{rule.metric} {value} {rule.operator} {rule.threshold}"
+                )
                 alerts.append(Alert(rule.metric, rule.severity, msg))
         return alerts
 

@@ -1,12 +1,26 @@
 import pytest
 
-from enterprise_ml_platform.services.resource_management.cost_optimizer import CostOptimizer
-from enterprise_ml_platform.services.resource_management.monitoring.cost_tracker import CostTracker
-from enterprise_ml_platform.services.resource_management.monitoring.usage_analyzer import UsageAnalyzer
-from enterprise_ml_platform.services.resource_management.monitoring.anomaly_detector import AnomalyDetector
-from enterprise_ml_platform.services.resource_management.allocation.dynamic_scaler import DynamicScaler
-from enterprise_ml_platform.services.resource_management.allocation.gpu_scheduler import GPUScheduler
-from enterprise_ml_platform.services.resource_management.allocation.queue_manager import QueueManager
+from enterprise_ml_platform.services.resource_management.allocation.dynamic_scaler import (
+    DynamicScaler,
+)
+from enterprise_ml_platform.services.resource_management.allocation.gpu_scheduler import (
+    GPUScheduler,
+)
+from enterprise_ml_platform.services.resource_management.allocation.queue_manager import (
+    QueueManager,
+)
+from enterprise_ml_platform.services.resource_management.cost_optimizer import (
+    CostOptimizer,
+)
+from enterprise_ml_platform.services.resource_management.monitoring.anomaly_detector import (
+    AnomalyDetector,
+)
+from enterprise_ml_platform.services.resource_management.monitoring.cost_tracker import (
+    CostTracker,
+)
+from enterprise_ml_platform.services.resource_management.monitoring.usage_analyzer import (
+    UsageAnalyzer,
+)
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ training.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -19,7 +19,7 @@ class DataConnector(Protocol):
     such as databases, object stores or streaming platforms.
     """
 
-    def connect(self, config: Dict[str, Any]) -> None:
+    def connect(self, config: dict[str, Any]) -> None:
         """Establish connection to a data source.
 
         Args:
@@ -85,7 +85,7 @@ class ModelTrainer(Protocol):
         """
         ...
 
-    def evaluate(self, model: Any, features: Any, targets: Any) -> Dict[str, float]:
+    def evaluate(self, model: Any, features: Any, targets: Any) -> dict[str, float]:
         """Evaluate a trained model.
 
         Args:

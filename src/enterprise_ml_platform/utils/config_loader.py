@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, Dict, MutableMapping, Optional, Sequence
+from typing import Any
 
 import yaml
 
@@ -15,8 +16,8 @@ def load_config(
     path: str | Path,
     *,
     env_prefix: str = "EMPLATFORM_",
-    required_keys: Optional[Sequence[str]] = None,
-) -> Dict[str, Any]:
+    required_keys: Sequence[str] | None = None,
+) -> dict[str, Any]:
     """Load a YAML configuration file and apply environment overrides.
 
     Environment variables beginning with ``env_prefix`` override nested
@@ -41,7 +42,7 @@ def load_config(
 
     try:
         raw = file_path.read_text(encoding="utf-8")
-        config: Dict[str, Any] = yaml.safe_load(raw) or {}
+        config: dict[str, Any] = yaml.safe_load(raw) or {}
     except (OSError, yaml.YAMLError) as exc:
         raise ConfigurationError("Failed to load configuration") from exc
 
@@ -75,6 +76,6 @@ def _apply_env_override(
     for key in key_path[:-1]:
         if key not in current or not isinstance(current[key], MutableMapping):
             current[key] = {}
-        current = current[key]  # type: ignore[assignment]
+        current = current[key]
 
     current[key_path[-1]] = yaml.safe_load(value)

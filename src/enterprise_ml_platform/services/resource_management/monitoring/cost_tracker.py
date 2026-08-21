@@ -1,18 +1,18 @@
-from __future__ import annotations
-
 """Record and expose cost metrics."""
 
+from __future__ import annotations
+
 from collections import defaultdict
-from typing import Dict, List
-from prometheus_client import Counter, CollectorRegistry
+
+from prometheus_client import CollectorRegistry, Counter
 
 
 class CostTracker:
     """Track cost per project/user/model."""
 
     def __init__(self, registry: CollectorRegistry | None = None) -> None:
-        self._costs: Dict[str, float] = {}
-        self._history: Dict[str, List[float]] = defaultdict(list)
+        self._costs: dict[str, float] = {}
+        self._history: dict[str, list[float]] = defaultdict(list)
         # Use a dedicated registry so multiple trackers can exist in tests
         self.registry = registry or CollectorRegistry()
         self.metric = Counter(
@@ -29,7 +29,10 @@ class CostTracker:
         self.metric.labels(project, user, model).inc(amount)
 
     def total_cost(
-        self, project: str | None = None, user: str | None = None, model: str | None = None
+        self,
+        project: str | None = None,
+        user: str | None = None,
+        model: str | None = None,
     ) -> float:
         total = 0.0
         for key, value in self._costs.items():
@@ -43,5 +46,5 @@ class CostTracker:
             total += value
         return total
 
-    def get_cost_history(self, project: str) -> List[float]:
+    def get_cost_history(self, project: str) -> list[float]:
         return self._history.get(project, [])

@@ -1,15 +1,15 @@
-from __future__ import annotations
-
 """Hyperparameter optimization utilities."""
 
-from dataclasses import dataclass
-from typing import Any, Dict
+from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
+from typing import Any
+
 import structlog
 
-from .optimizers import BayesianOptimizer
 from .distributed import RayOptimizer
+from .optimizers import BayesianOptimizer
 
 try:  # pragma: no cover - optional dependency
     import optuna
@@ -30,8 +30,8 @@ class HyperparameterOptimizer:
         trainer_factory,
         X,
         y,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Run hyperparameter optimisation.
 
         Args:
@@ -59,8 +59,8 @@ class HyperparameterOptimizer:
         if optuna is None:  # pragma: no cover - runtime check
             raise ImportError("optuna is required for hyperparameter optimization")
 
-        def objective(trial: "optuna.trial.Trial") -> float:
-            params: Dict[str, Any] = {}
+        def objective(trial: optuna.trial.Trial) -> float:
+            params: dict[str, Any] = {}
             for name, spec in config["params"].items():
                 if spec["type"] == "int":
                     params[name] = trial.suggest_int(name, spec["low"], spec["high"])
@@ -76,7 +76,9 @@ class HyperparameterOptimizer:
             # Assume maximization of the first metric returned
             return list(metrics.values())[0]
 
-        study = optuna.create_study(direction=config.get("direction", "maximize"), study_name=self.study_name)
+        study = optuna.create_study(
+            direction=config.get("direction", "maximize"), study_name=self.study_name
+        )
         await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: study.optimize(objective, n_trials=config.get("n_trials", 10)),

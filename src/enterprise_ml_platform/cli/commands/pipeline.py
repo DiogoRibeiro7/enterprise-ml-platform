@@ -1,8 +1,9 @@
 """Pipeline management commands."""
+
 from __future__ import annotations
 
+import builtins
 from pathlib import Path
-from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -26,7 +27,7 @@ def run(
         config: Path to pipeline configuration file.
         stages: Comma-separated list of stages to run.
     """
-    stage_list: List[str] = [s.strip() for s in stages.split(",") if s]
+    stage_list: builtins.list[str] = [s.strip() for s in stages.split(",") if s]
     total = len(stage_list) or 1
     with Progress() as progress:
         task = progress.add_task("Running pipeline", total=total)
@@ -46,7 +47,7 @@ def status(run_id: str = typer.Argument(...)) -> None:
 
 
 @app.command()
-def list(status: Optional[str] = typer.Option(None, help="Filter by status.")) -> None:
+def list(status: str | None = typer.Option(None, help="Filter by status.")) -> None:
     """List pipeline runs with optional filtering."""
     console.print(f"Listing pipeline runs with status: {status or 'any'}")
 

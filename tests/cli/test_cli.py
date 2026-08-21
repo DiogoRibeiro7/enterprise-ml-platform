@@ -1,4 +1,5 @@
 """Tests for the CLI application."""
+
 from __future__ import annotations
 
 from pathlib import Path

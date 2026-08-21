@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 """Automated rollback utilities for deployments."""
 
-from typing import Dict, Tuple, Optional
+from __future__ import annotations
 
 import structlog
 
@@ -15,10 +13,12 @@ class RollbackManager:
     """Track deployments and trigger rollbacks when necessary."""
 
     def __init__(self) -> None:
-        self._history: Dict[str, Tuple[BaseDeployer, Optional[str]]] = {}
+        self._history: dict[str, tuple[BaseDeployer, str | None]] = {}
         self.logger = logger.bind(component="rollback-manager")
 
-    def register(self, endpoint: str, deployer: BaseDeployer, previous_version: str | None = None) -> None:
+    def register(
+        self, endpoint: str, deployer: BaseDeployer, previous_version: str | None = None
+    ) -> None:
         """Register a deployment for potential rollback."""
         self._history[endpoint] = (deployer, previous_version)
 

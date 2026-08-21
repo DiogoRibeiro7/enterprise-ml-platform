@@ -1,8 +1,8 @@
-from __future__ import annotations
-
 """Recommend instance sizes based on historical usage."""
 
-from typing import Iterable
+from __future__ import annotations
+
+from collections.abc import Iterable
 
 
 class Rightsizer:

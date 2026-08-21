@@ -1,8 +1,9 @@
 """Real-time model inference utilities."""
+
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 
@@ -16,7 +17,7 @@ class StreamPredictor:
         self.model = model
         self.logger = logger.bind(component="stream-predictor")
 
-    async def predict(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    async def predict(self, features: dict[str, Any]) -> dict[str, Any]:
         """Return prediction for given ``features``.
 
         This default implementation offloads prediction to a thread to avoid

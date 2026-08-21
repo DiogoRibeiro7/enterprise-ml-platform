@@ -1,12 +1,12 @@
 """Data ingestion service package."""
 
-from .service import DataIngestionService, DataSource, IngestionMetrics
 from .connectors import (
     AsyncDataConnector,
     KafkaConnector,
     PostgresDataConnector,
     S3DataConnector,
 )
+from .service import DataIngestionService, DataSource, IngestionMetrics
 from .validators import DataValidator, ValidationReport
 
 __all__ = [

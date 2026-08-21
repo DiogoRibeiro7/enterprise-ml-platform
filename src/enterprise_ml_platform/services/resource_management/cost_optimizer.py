@@ -1,14 +1,14 @@
-from __future__ import annotations
-
 """Orchestrate cost tracking and resource allocation."""
 
+from __future__ import annotations
+
+from .allocation.dynamic_scaler import DynamicScaler
+from .allocation.gpu_scheduler import GPUScheduler
+from .allocation.queue_manager import QueueManager
+from .allocation.spot_manager import SpotManager
+from .monitoring.anomaly_detector import AnomalyDetector
 from .monitoring.cost_tracker import CostTracker
 from .monitoring.usage_analyzer import UsageAnalyzer
-from .monitoring.anomaly_detector import AnomalyDetector
-from .allocation.dynamic_scaler import DynamicScaler
-from .allocation.queue_manager import QueueManager
-from .allocation.gpu_scheduler import GPUScheduler
-from .allocation.spot_manager import SpotManager
 
 
 class CostOptimizer:
@@ -32,7 +32,9 @@ class CostOptimizer:
         self.spot = spot or SpotManager()
         self.anomaly = anomaly or AnomalyDetector()
 
-    async def record_cost(self, project: str, user: str, model: str, amount: float) -> None:
+    async def record_cost(
+        self, project: str, user: str, model: str, amount: float
+    ) -> None:
         """Record cost and run anomaly detection."""
         self.tracker.record_cost(project, user, model, amount)
         self.analyzer.record_usage(project, "cost", amount)

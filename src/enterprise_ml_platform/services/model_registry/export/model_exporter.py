@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Model exporting utilities."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
@@ -10,11 +10,19 @@ from typing import Any
 class ModelExporter:
     """Convert models into different serialisation formats.
 
-    The exporter only simulates conversion by returning a string that indicates
-    where a converted artifact would be stored.
+    Not implemented. The previous version returned ``/tmp/exported_model.onnx``
+    without converting anything, so callers could not tell a successful export
+    from a no-op.
     """
 
     def export(self, model: Any, fmt: str) -> str:
-        """"Export`` model to format ``fmt`` and return a fake path."""
+        """Export ``model`` to format ``fmt`` and return the artifact path.
 
-        return f"/tmp/exported_model.{fmt}"
+        Raises:
+            NotImplementedError: Always. Use the format's own exporter
+                (``skl2onnx``, ``mlflow.onnx``) until this is implemented.
+        """
+        raise NotImplementedError(
+            f"exporting to {fmt!r} is not implemented; "
+            "convert the model with the target format's own tooling"
+        )

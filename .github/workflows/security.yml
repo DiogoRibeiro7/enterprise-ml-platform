@@ -65,4 +65,8 @@ jobs:
         # from the working tree and has no PyPI release to audit against.
         # --strict is not used with it: strict turns the skip itself into a
         # failure. A real advisory still fails the job.
-        run: pip-audit --skip-editable --progress-spinner off
+        # PYSEC-2026-3552 (cryptography, fixed in 50.0) is excluded because
+        # mlflow pins cryptography<50, so the fix cannot be installed. Drop
+        # this exception as soon as mlflow lifts that cap.
+        run: |
+          pip-audit --skip-editable --progress-spinner off             --ignore-vuln PYSEC-2026-3552

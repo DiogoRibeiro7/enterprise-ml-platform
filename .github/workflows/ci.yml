@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
+  # No base branch filter: a pull request stacked on another branch still has
+  # to be checked, and filtering by base would silently skip every one of them.
   pull_request:
-    branches: [develop, main]
   workflow_dispatch:
 
 concurrency:

@@ -2,9 +2,9 @@ name: Security
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
+  # See ci.yml: no base filter, so stacked pull requests are scanned too.
   pull_request:
-    branches: [develop, main]
   schedule:
     # Dependency advisories appear after a commit lands, so re-check weekly.
     - cron: "17 4 * * 1"

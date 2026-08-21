@@ -1,23 +1,39 @@
-import pathlib
-import sys
+"""End-to-end tests for the API surface."""
 
+from __future__ import annotations
+
+import pytest
 from fastapi.testclient import TestClient
 
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "src"))
+from enterprise_ml_platform.api.config import APISettings
+from enterprise_ml_platform.api.main import create_app
 
-from enterprise_ml_platform.api.main import app
-
-client = TestClient(app)
-API_KEY = {"X-API-Key": "secret"}
+API_KEY = {"X-API-Key": "test-key"}
 
 
-def test_health_endpoint():
+@pytest.fixture
+def client() -> TestClient:
+    """A client for an authenticated app serving the built-in demo model.
+
+    Authentication is enforced whenever an API key is configured, including in
+    development, so this exercises the real auth path without needing a model
+    registry to stand behind it.
+    """
+    app = create_app(APISettings(environment="development", api_key="test-key"))
+    return TestClient(app)
+
+
+def test_health_endpoint(client: TestClient) -> None:
     response = client.get("/api/v1/health", headers=API_KEY)
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
-def test_model_load_and_predict():
+def test_health_endpoint_requires_the_api_key(client: TestClient) -> None:
+    assert client.get("/api/v1/health").status_code == 401
+
+
+def test_model_load_and_predict(client: TestClient) -> None:
     load_resp = client.post("/api/v1/models/iris/load", headers=API_KEY)
     assert load_resp.status_code == 200
     predict_resp = client.post(

@@ -30,20 +30,22 @@ from __future__ import annotations
 
 import asyncio
 import time
+from abc import ABC, abstractmethod
 from collections import defaultdict, deque
+from collections.abc import Iterable, Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, Iterable, Mapping, Optional, Set
-from abc import ABC, abstractmethod
+from enum import StrEnum
+from types import TracebackType
+from typing import Any
 
 import structlog
-from prometheus_client import Counter, Histogram
+from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram
 
 logger = structlog.get_logger()
 
 
-class StageStatus(str, Enum):
+class StageStatus(StrEnum):
     """Execution status of a pipeline stage."""
 
     PENDING = "pending"
@@ -65,9 +67,9 @@ class ExecutionContext:
     """
 
     run_id: str
-    params: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    artifacts: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    artifacts: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -87,8 +89,8 @@ class StageResult:
     name: str
     status: StageStatus
     output: Any = None
-    error: Optional[BaseException] = None
-    metrics: Dict[str, float] = field(default_factory=dict)
+    error: BaseException | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
     started_at: float = field(default_factory=time.time)
     ended_at: float = 0.0
 
@@ -148,11 +150,11 @@ class BasePipelineStage(ABC):
     def __init__(
         self,
         name: str,
-        dependencies: Optional[Iterable[str]] = None,
-        retry_policy: Optional[RetryPolicy] = None,
+        dependencies: Iterable[str] | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self.name = name
-        self.dependencies: Set[str] = set(dependencies or [])
+        self.dependencies: set[str] = set(dependencies or [])
         self.retry_policy = retry_policy or RetryPolicy()
         self.circuit_breaker = CircuitBreaker()
         self.logger = structlog.get_logger().bind(stage=name)
@@ -194,14 +196,18 @@ class PipelineOrchestrator:
         self,
         stages: Iterable[BasePipelineStage],
         concurrency: int = 4,
+        *,
+        metrics_registry: CollectorRegistry | None = None,
     ) -> None:
-        self.stages: Dict[str, BasePipelineStage] = {
+        self.stages: dict[str, BasePipelineStage] = {
             stage.name: stage for stage in stages
         }
         self.concurrency = max(1, concurrency)
         self.logger = structlog.get_logger().bind(component="orchestrator")
-        self._graph = {name: set(stage.dependencies) for name, stage in self.stages.items()}
-        self._dependents: Dict[str, Set[str]] = defaultdict(set)
+        self._graph = {
+            name: set(stage.dependencies) for name, stage in self.stages.items()
+        }
+        self._dependents: dict[str, set[str]] = defaultdict(set)
         for name, deps in self._graph.items():
             for dep in deps:
                 self._dependents[dep].add(name)
@@ -209,24 +215,45 @@ class PipelineOrchestrator:
         self._exit_stack = AsyncExitStack()
         self._total = len(self.stages)
         self._completed = 0
-        self._init_metrics()
+        self._init_metrics(metrics_registry)
 
-    async def __aenter__(self) -> "PipelineOrchestrator":
+    async def __aenter__(self) -> PipelineOrchestrator:
         await self._exit_stack.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         await self._exit_stack.__aexit__(exc_type, exc, tb)
 
-    def _init_metrics(self) -> None:
+    def _init_metrics(self, registry: CollectorRegistry | None = None) -> None:
+        """Register pipeline metrics against ``registry``.
+
+        An explicit registry is needed whenever several orchestrators live in
+        the same process, since Prometheus rejects duplicate timeseries within
+        a single registry.
+        """
+        self.metrics_registry = registry if registry is not None else REGISTRY
         self.metric_duration = Histogram(
-            "pipeline_stage_duration_seconds", "Time spent executing a stage", ["stage"]
+            "pipeline_stage_duration_seconds",
+            "Time spent executing a stage",
+            ["stage"],
+            registry=self.metrics_registry,
         )
         self.metric_success = Counter(
-            "pipeline_stage_success_total", "Number of successful stage executions", ["stage"]
+            "pipeline_stage_success_total",
+            "Number of successful stage executions",
+            ["stage"],
+            registry=self.metrics_registry,
         )
         self.metric_failure = Counter(
-            "pipeline_stage_failure_total", "Number of failed stage executions", ["stage"]
+            "pipeline_stage_failure_total",
+            "Number of failed stage executions",
+            ["stage"],
+            registry=self.metrics_registry,
         )
 
     def _validate_graph(self) -> None:
@@ -248,81 +275,175 @@ class PipelineOrchestrator:
         """Return pipeline execution progress between 0 and 1."""
         return self._completed / self._total if self._total else 1.0
 
-    def generate_execution_graph(self) -> Mapping[str, Set[str]]:
+    def generate_execution_graph(self) -> Mapping[str, set[str]]:
         """Return adjacency list representing stage dependencies."""
         return {k: set(v) for k, v in self._graph.items()}
 
     async def run(self, context: ExecutionContext) -> Mapping[str, StageResult]:
         """Execute the pipeline.
 
+        Stages are scheduled as soon as their dependencies succeed, bounded by
+        the configured concurrency. When a stage fails, scheduling stops, every
+        outstanding stage is cancelled and awaited, and only then are the
+        stages that actually completed rolled back -- in reverse completion
+        order, so a compensating action never runs before the action it
+        compensates for.
+
         Args:
             context: Execution context for this run.
 
         Returns:
             Mapping of stage name to :class:`StageResult`.
+
+        Raises:
+            RuntimeError: If any stage fails. Rollback has already run.
         """
-        results: Dict[str, StageResult] = {}
-        pending: Dict[str, Set[str]] = {k: set(v) for k, v in self._graph.items()}
+        results: dict[str, StageResult] = {}
+        completed_order: list[str] = []
+        pending: dict[str, set[str]] = {k: set(v) for k, v in self._graph.items()}
         ready = deque([name for name, deps in pending.items() if not deps])
         semaphore = asyncio.Semaphore(self.concurrency)
-        tasks: Dict[str, asyncio.Task] = {}
+        tasks: dict[str, asyncio.Task] = {}
+        failure: StageResult | None = None
+        self._completed = 0
 
-        async def _run_stage(stage_name: str) -> None:
+        async def _run_stage(stage_name: str) -> StageResult:
+            """Execute a single stage. Never mutates shared state."""
             stage = self.stages[stage_name]
             async with semaphore:
                 result = await self._execute_with_retry(stage, context)
-                results[stage_name] = result
-                await stage.cleanup(context)
+            await stage.cleanup(context)
+            return result
+
+        while ready or tasks:
+            while failure is None and ready and len(tasks) < self.concurrency:
+                name = ready.popleft()
+                tasks[name] = asyncio.create_task(_run_stage(name))
+            if not tasks:
+                break
+
+            done, _ = await asyncio.wait(
+                tasks.values(), return_when=asyncio.FIRST_COMPLETED
+            )
+            # Results are recorded here, on the single coordinating coroutine,
+            # so ``results`` is never mutated while it is being read.
+            for finished in done:
+                name = next(k for k, t in tasks.items() if t is finished)
+                tasks.pop(name)
+                result = self._result_from_task(name, finished)
+                results[name] = result
+                completed_order.append(name)
                 self._completed += 1
                 self.logger.info(
                     "stage_completed",
-                    stage=stage_name,
+                    stage=name,
                     status=result.status.value,
                     progress=self.progress,
                     duration=result.duration,
                 )
                 if result.status is StageStatus.SUCCESS:
-                    for dependent in self._dependents.get(stage_name, set()):
-                        pending[dependent].discard(stage_name)
+                    for dependent in self._dependents.get(name, set()):
+                        pending[dependent].discard(name)
                         if not pending[dependent]:
                             ready.append(dependent)
-                else:
-                    await self._rollback(context, results)
-                    raise RuntimeError(f"Stage '{stage_name}' failed") from result.error
+                elif failure is None:
+                    failure = result
 
-        while ready or tasks:
-            while ready and len(tasks) < self.concurrency:
-                name = ready.popleft()
-                tasks[name] = asyncio.create_task(_run_stage(name))
-            if not tasks:
-                continue
-            done, _ = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_COMPLETED)
-            for finished in done:
-                for key, task in list(tasks.items()):
-                    if task is finished:
-                        if task.exception():
-                            await asyncio.gather(*tasks.values(), return_exceptions=True)
-                            raise task.exception()
-                        tasks.pop(key)
+            if failure is not None:
+                break
+
+        if failure is not None:
+            await self._cancel_outstanding(tasks, results, completed_order)
+            await self._rollback(context, results, completed_order)
+            raise RuntimeError(f"Stage '{failure.name}' failed") from failure.error
+
         return results
 
-    async def _rollback(
-        self, context: ExecutionContext, results: Mapping[str, StageResult]
+    @staticmethod
+    def _result_from_task(name: str, task: asyncio.Task) -> StageResult:
+        """Convert a finished task into a :class:`StageResult`.
+
+        ``_execute_with_retry`` returns a result rather than raising, so an
+        exception here means the stage's ``cleanup`` or the task machinery
+        itself failed. Either way the stage did not succeed.
+        """
+        if task.cancelled():
+            return StageResult(
+                name=name,
+                status=StageStatus.SKIPPED,
+                error=asyncio.CancelledError(),
+                ended_at=time.time(),
+            )
+        exc = task.exception()
+        if exc is not None:
+            return StageResult(
+                name=name, status=StageStatus.FAILED, error=exc, ended_at=time.time()
+            )
+        result: StageResult = task.result()
+        return result
+
+    async def _cancel_outstanding(
+        self,
+        tasks: dict[str, asyncio.Task],
+        results: dict[str, StageResult],
+        completed_order: list[str],
     ) -> None:
-        """Rollback all successfully executed stages."""
-        for name, result in results.items():
+        """Cancel in-flight stages and record whatever they managed to do.
+
+        A stage that finished between the failure and the cancellation landing
+        has already produced side effects, so it is recorded as completed and
+        rolled back with the rest.
+        """
+        if not tasks:
+            return
+        items = list(tasks.items())
+        for _, task in items:
+            task.cancel()
+        await asyncio.gather(*(task for _, task in items), return_exceptions=True)
+        for name, task in items:
+            result = self._result_from_task(name, task)
+            results[name] = result
             if result.status is StageStatus.SUCCESS:
-                try:
-                    await self.stages[name].rollback(context, result)
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.error("rollback_failed", stage=name, error=str(exc))
+                completed_order.append(name)
+                self.logger.warning("stage_completed_during_abort", stage=name)
+            else:
+                self.logger.info("stage_cancelled", stage=name)
+        tasks.clear()
+
+    async def _rollback(
+        self,
+        context: ExecutionContext,
+        results: Mapping[str, StageResult],
+        completed_order: Iterable[str] | None = None,
+    ) -> None:
+        """Roll back successful stages in reverse completion order.
+
+        Args:
+            context: Execution context for this run.
+            results: Results recorded so far.
+            completed_order: Order in which stages completed. Defaults to the
+                insertion order of ``results``.
+        """
+        order = list(completed_order) if completed_order is not None else list(results)
+        for name in reversed(order):
+            result = results.get(name)
+            if result is None or result.status is not StageStatus.SUCCESS:
+                continue
+            try:
+                await self.stages[name].rollback(context, result)
+            except Exception as exc:  # pragma: no cover - defensive
+                self.logger.error("rollback_failed", stage=name, error=str(exc))
 
     async def _execute_with_retry(
         self, stage: BasePipelineStage, context: ExecutionContext
     ) -> StageResult:
         """Execute a stage honouring retry and circuit breaker policies."""
         if not stage.circuit_breaker.allow():
-            return StageResult(name=stage.name, status=StageStatus.SKIPPED, error=RuntimeError("circuit open"))
+            return StageResult(
+                name=stage.name,
+                status=StageStatus.SKIPPED,
+                error=RuntimeError("circuit open"),
+            )
 
         attempt = 0
         delay = stage.retry_policy.base_delay
@@ -343,7 +464,10 @@ class PipelineOrchestrator:
                 result.error = exc
                 stage.circuit_breaker.record_failure()
                 self.metric_failure.labels(stage=stage.name).inc()
-                if attempt > stage.retry_policy.max_retries or not stage.circuit_breaker.allow():
+                if (
+                    attempt > stage.retry_policy.max_retries
+                    or not stage.circuit_breaker.allow()
+                ):
                     result.status = StageStatus.FAILED
                     result.ended_at = time.time()
                     return result

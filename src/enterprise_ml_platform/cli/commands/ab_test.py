@@ -1,4 +1,5 @@
 """CLI utilities for managing experiments."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,11 @@ def assign(name: str, session: str) -> None:
     typer.echo(variant)
 
 
-@app.command()
-def list() -> None:  # pragma: no cover - debug helper
+@app.command("list")
+def list_experiments() -> None:  # pragma: no cover - debug helper
+    """List the registered experiments.
+
+    Named ``list_experiments`` rather than ``list``: shadowing the builtin
+    made the ``list(...)`` call below recurse into this command instead.
+    """
     typer.echo(list(_manager._experiments.keys()))

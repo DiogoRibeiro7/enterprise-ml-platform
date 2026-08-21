@@ -1,17 +1,30 @@
 """Typer-based command line interface for the Enterprise ML Platform."""
+
 from __future__ import annotations
 
 import typer
 from rich.console import Console
 
 from enterprise_ml_platform.cli.commands import (
-    config as config_cmd,
-    data as data_cmd,
-    deploy as deploy_cmd,
-    models as models_cmd,
-    monitor as monitor_cmd,
-    pipeline as pipeline_cmd,
     ab_test as ab_test_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    config as config_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    data as data_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    deploy as deploy_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    models as models_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    monitor as monitor_cmd,
+)
+from enterprise_ml_platform.cli.commands import (
+    pipeline as pipeline_cmd,
 )
 
 console = Console()
@@ -57,5 +70,15 @@ def main(
     """
 
 
-if __name__ == "__main__":  # pragma: no cover
+def run() -> None:
+    """Console script entry point.
+
+    The ``main`` below is a Typer *callback*: it takes a context Typer builds
+    and injects, so calling it as a console script raises ``TypeError``. The
+    Typer app itself is what has to be invoked.
+    """
     app()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    run()

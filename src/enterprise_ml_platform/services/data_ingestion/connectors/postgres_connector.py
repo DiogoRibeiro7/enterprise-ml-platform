@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -28,7 +29,7 @@ class PostgresDataConnector(AsyncDataConnector):
     def __init__(self, dsn: str, **connect_kwargs: Any) -> None:
         self.dsn = dsn
         self.connect_kwargs = connect_kwargs
-        self._pool: Optional[asyncpg.Pool] = None
+        self._pool: asyncpg.Pool | None = None
         self._log = structlog.get_logger().bind(connector="postgres")
 
     async def connect(self) -> None:

@@ -1,9 +1,11 @@
-from __future__ import annotations
 """Checkpoint management for streaming pipelines."""
 
+from __future__ import annotations
+
 import json
+import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 
@@ -13,13 +15,13 @@ logger = structlog.get_logger()
 class CheckpointManager:
     """Persist offsets for fault tolerance and recovery."""
 
-    def __init__(self, path: str = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         if path is None:
             path = str(Path(tempfile.gettempdir()) / "stream.checkpoint")
         self.path = Path(path)
         self.logger = logger.bind(component="checkpoint-manager")
 
-    async def mark_checkpoint(self, message: Dict[str, Any]) -> None:
+    async def mark_checkpoint(self, message: dict[str, Any]) -> None:
         """Persist checkpoint metadata to disk."""
         try:
             with self.path.open("w") as f:

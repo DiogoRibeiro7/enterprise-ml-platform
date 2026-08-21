@@ -1,14 +1,15 @@
 """Manage A/B testing experiments and traffic routing."""
+
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .traffic_router import TrafficRouter
-from .statistical_analyzer import StatisticalAnalyzer
 from .decision_engine import DecisionEngine
 from .monitoring.experiment_tracker import ExperimentTracker
+from .statistical_analyzer import StatisticalAnalyzer
+from .traffic_router import TrafficRouter
 
 
 @dataclass
@@ -16,11 +17,11 @@ class ExperimentConfig:
     """Configuration for an experiment."""
 
     name: str
-    variants: Dict[str, str]  # variant name -> model identifier
-    traffic_split: Dict[str, float]
+    variants: dict[str, str]  # variant name -> model identifier
+    traffic_split: dict[str, float]
     success_metric: str = "conversion"  # metric tracked for significance
-    geo_overrides: Dict[str, str] = field(default_factory=dict)
-    demo_overrides: Dict[str, str] = field(default_factory=dict)
+    geo_overrides: dict[str, str] = field(default_factory=dict)
+    demo_overrides: dict[str, str] = field(default_factory=dict)
 
 
 class ExperimentManager:
@@ -28,15 +29,15 @@ class ExperimentManager:
 
     def __init__(
         self,
-        analyzer: Optional[StatisticalAnalyzer] = None,
-        decision_engine: Optional[DecisionEngine] = None,
-        tracker: Optional[ExperimentTracker] = None,
+        analyzer: StatisticalAnalyzer | None = None,
+        decision_engine: DecisionEngine | None = None,
+        tracker: ExperimentTracker | None = None,
     ) -> None:
         self.analyzer = analyzer or StatisticalAnalyzer()
         self.decision_engine = decision_engine or DecisionEngine(self.analyzer)
         self.tracker = tracker or ExperimentTracker()
-        self._experiments: Dict[str, ExperimentConfig] = {}
-        self._routers: Dict[str, TrafficRouter] = {}
+        self._experiments: dict[str, ExperimentConfig] = {}
+        self._routers: dict[str, TrafficRouter] = {}
         self._lock = asyncio.Lock()
 
     async def create_experiment(self, cfg: ExperimentConfig) -> None:
@@ -45,7 +46,7 @@ class ExperimentManager:
             self._routers[cfg.name] = TrafficRouter(cfg)
 
     async def get_variant(
-        self, experiment: str, session_id: str, attributes: Optional[Dict[str, Any]] = None
+        self, experiment: str, session_id: str, attributes: dict[str, Any] | None = None
     ) -> str:
         router = self._routers[experiment]
         variant = router.route(session_id, attributes or {})
@@ -57,16 +58,16 @@ class ExperimentManager:
     ) -> None:
         self.tracker.record_outcome(experiment, variant, value, success)
 
-    async def analyze(self, experiment: str) -> Dict[str, Any]:
+    async def analyze(self, experiment: str) -> dict[str, Any]:
         data = self.tracker.get_metrics(experiment)
         return self.analyzer.analyze(data)
 
-    async def decide(self, experiment: str, criteria: Dict[str, Any]) -> Dict[str, Any]:
+    async def decide(self, experiment: str, criteria: dict[str, Any]) -> dict[str, Any]:
         analysis = await self.analyze(experiment)
         decision = self.decision_engine.decide(experiment, analysis, criteria)
         return {"analysis": analysis, "decision": decision}
 
-    async def update_split(self, experiment: str, new_split: Dict[str, float]) -> None:
+    async def update_split(self, experiment: str, new_split: dict[str, float]) -> None:
         async with self._lock:
             cfg = self._experiments[experiment]
             cfg.traffic_split = new_split

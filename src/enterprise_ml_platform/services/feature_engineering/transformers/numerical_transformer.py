@@ -5,14 +5,20 @@ scaling, polynomial features and basic outlier handling.  The implementation is
 kept intentionally lightweight but showcases how production ready components can
 be structured.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import PolynomialFeatures, QuantileTransformer, StandardScaler, RobustScaler
+from sklearn.preprocessing import (
+    PolynomialFeatures,
+    QuantileTransformer,
+    RobustScaler,
+    StandardScaler,
+)
 
 from ....core.base_components import FeatureTransformer
 
@@ -29,17 +35,21 @@ class NumericalFeatureTransformer(FeatureTransformer):
         ``interaction_only`` (bool).
     """
 
-    config: Dict[str, Any]
+    config: dict[str, Any]
     _scaler: Any | None = field(init=False, default=None)
     _poly: PolynomialFeatures | None = field(init=False, default=None)
-    _outlier_bounds: Dict[str, tuple[float, float]] = field(init=False, default_factory=dict)
+    _outlier_bounds: dict[str, tuple[float, float]] = field(
+        init=False, default_factory=dict
+    )
 
     def fit(self, data: pd.DataFrame) -> NumericalFeatureTransformer:  # type: ignore[override]
         numeric_cols = data.select_dtypes(include=[np.number]).columns
         if self.config.get("scaler") == "robust":
             self._scaler = RobustScaler().fit(data[numeric_cols])
         elif self.config.get("scaler") == "quantile":
-            self._scaler = QuantileTransformer(output_distribution="normal").fit(data[numeric_cols])
+            self._scaler = QuantileTransformer(output_distribution="normal").fit(
+                data[numeric_cols]
+            )
         else:
             self._scaler = StandardScaler().fit(data[numeric_cols])
 
@@ -73,7 +83,9 @@ class NumericalFeatureTransformer(FeatureTransformer):
         for col in numeric_cols:
             if col in self._outlier_bounds:
                 low, high = self._outlier_bounds[col]
-                result[f"{col}_outlier"] = ((data[col] < low) | (data[col] > high)).astype(int)
+                result[f"{col}_outlier"] = (
+                    (data[col] < low) | (data[col] > high)
+                ).astype(int)
             if self.config.get("bins"):
                 bins = int(self.config["bins"])
                 result[f"{col}_bin"] = pd.cut(data[col], bins=bins, labels=False)

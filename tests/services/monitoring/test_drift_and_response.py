@@ -2,11 +2,11 @@ import asyncio
 
 import numpy as np
 
-from enterprise_ml_platform.services.monitoring.drift_detection import DriftAnalyzer
+from enterprise_ml_platform.services.monitoring.alerting.rules_engine import Alert
 from enterprise_ml_platform.services.monitoring.automated_response import (
     AutomatedResponder,
 )
-from enterprise_ml_platform.services.monitoring.alerting.rules_engine import Alert
+from enterprise_ml_platform.services.monitoring.drift_detection import DriftAnalyzer
 
 
 def test_advanced_drift_detection_numeric_and_categorical():

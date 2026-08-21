@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import io
-from typing import Any, AsyncIterator, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -29,10 +30,10 @@ class S3DataConnector(AsyncDataConnector):
         Optional region where the bucket resides.
     """
 
-    def __init__(self, bucket: str, aws_region: Optional[str] = None) -> None:
+    def __init__(self, bucket: str, aws_region: str | None = None) -> None:
         self.bucket = bucket
         self.aws_region = aws_region
-        self._session: Optional[aioboto3.Session] = None
+        self._session: aioboto3.Session | None = None
         self._client: Any = None
         self._log = structlog.get_logger().bind(connector="s3", bucket=bucket)
 
@@ -63,7 +64,7 @@ class S3DataConnector(AsyncDataConnector):
         sem = asyncio.Semaphore(max_parallel)
         tasks = []
 
-        async def _fetch(key: str) -> Optional[pd.DataFrame]:
+        async def _fetch(key: str) -> pd.DataFrame | None:
             async with sem:
                 try:
                     obj = await self._client.get_object(Bucket=self.bucket, Key=key)

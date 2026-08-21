@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Minimal PagerDuty notification client."""
+
+from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
@@ -19,4 +19,6 @@ class PagerDutyClient:
 
     async def send(self, alert: Any) -> None:  # pragma: no cover - simple logging
         await asyncio.sleep(0)
-        logger.info("pagerduty_alert", routing_key=self.routing_key, message=alert.message)
+        logger.info(
+            "pagerduty_alert", routing_key=self.routing_key, message=alert.message
+        )

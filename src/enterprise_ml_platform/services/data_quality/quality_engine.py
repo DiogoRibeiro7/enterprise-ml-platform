@@ -3,26 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 import pandas as pd
 
-from .validators.schema_validator import SchemaValidator
-from .validators.business_rule_validator import BusinessRuleValidator
-from .profiling.data_profiler import DataProfiler
 from .anomaly.anomaly_detector import AnomalyDetector
 from .monitoring.quality_monitor import QualityMonitor
-from .rules.rule_engine import RuleEngine
-from .reporting.quality_reporter import QualityReporter
+from .profiling.data_profiler import DataProfiler
 from .remediation.data_remediation import DataRemediation
+from .reporting.quality_reporter import QualityReporter
+from .rules.rule_engine import RuleEngine
+from .validators.business_rule_validator import BusinessRuleValidator
+from .validators.schema_validator import SchemaValidator
 
 
 @dataclass
 class QualityEngine:
     """Coordinate validation, profiling and remediation of datasets."""
 
-    schema_validator: Optional[SchemaValidator] = None
-    business_validator: BusinessRuleValidator = field(default_factory=BusinessRuleValidator)
+    schema_validator: SchemaValidator | None = None
+    business_validator: BusinessRuleValidator = field(
+        default_factory=BusinessRuleValidator
+    )
     profiler: DataProfiler = field(default_factory=DataProfiler)
     anomaly_detector: AnomalyDetector = field(default_factory=AnomalyDetector)
     monitor: QualityMonitor = field(default_factory=QualityMonitor)
@@ -30,10 +31,10 @@ class QualityEngine:
     reporter: QualityReporter = field(default_factory=QualityReporter)
     remediation: DataRemediation = field(default_factory=DataRemediation)
 
-    def run(self, df: pd.DataFrame) -> Dict[str, List[str]]:
+    def run(self, df: pd.DataFrame) -> dict[str, list[str]]:
         """Execute all quality checks and return issues by category."""
 
-        results: Dict[str, List[str]] = {}
+        results: dict[str, list[str]] = {}
         if self.schema_validator:
             results["schema"] = self.schema_validator.validate(df)
         if self.business_validator.rules:
@@ -53,7 +54,9 @@ class QualityEngine:
         results["report"] = [self.reporter.generate(results, score)]
         return results
 
-    def remediate(self, df: pd.DataFrame, results: Dict[str, List[str]]) -> pd.DataFrame:
+    def remediate(
+        self, df: pd.DataFrame, results: dict[str, list[str]]
+    ) -> pd.DataFrame:
         """Apply automatic remediation based on ``results``."""
 
         issues = [msg for msgs in results.values() for msg in msgs]

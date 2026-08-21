@@ -7,7 +7,9 @@ import pytest
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / "src"))
 
-from enterprise_ml_platform.services.feature_engineering import FeatureEngineeringService
+from enterprise_ml_platform.services.feature_engineering import (
+    FeatureEngineeringService,
+)
 
 
 @pytest.fixture
@@ -40,4 +42,3 @@ def test_service_creates_features(sample_data):
     engineered, metrics = asyncio.run(service.engineer_features(df, target))
     assert metrics.features_created >= 0
     assert metrics.features_selected > 0
-

@@ -1,10 +1,12 @@
-from __future__ import annotations
-
 """Ensemble model trainer."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Tuple
+from __future__ import annotations
 
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from typing import Any
+
+import joblib
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import (
@@ -14,7 +16,6 @@ from sklearn.ensemble import (
     VotingRegressor,
 )
 from sklearn.metrics import accuracy_score, r2_score
-import joblib
 
 from ....core.base_components import ModelTrainer
 
@@ -23,11 +24,11 @@ from ....core.base_components import ModelTrainer
 class EnsembleTrainer(ModelTrainer):
     """Trainer supporting voting and stacking ensembles."""
 
-    estimators: Iterable[Tuple[str, BaseEstimator]]
+    estimators: Iterable[tuple[str, BaseEstimator]]
     task: str = "classification"
     method: str = "voting"
     final_estimator: BaseEstimator | None = None
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
     def _build_model(self) -> BaseEstimator:
         if self.task == "classification":
@@ -65,7 +66,7 @@ class EnsembleTrainer(ModelTrainer):
 
     def evaluate(
         self, model: BaseEstimator, features: np.ndarray, targets: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         preds = model.predict(features)
         if self.task == "classification":
             return {"accuracy": float(accuracy_score(targets, preds))}

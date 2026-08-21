@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, Iterable
 
 
 @dataclass
@@ -12,7 +11,7 @@ class QualityMonitor:
     """Store recent quality scores for trend analysis."""
 
     window: int = 100
-    history: Deque[float] = field(default_factory=deque)
+    history: deque[float] = field(default_factory=deque)
 
     def record(self, score: float) -> None:
         """Record a new quality ``score``."""

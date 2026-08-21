@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 """Canary deployment strategy."""
 
-from dataclasses import dataclass
+from __future__ import annotations
+
 import asyncio
-from typing import Optional
+from dataclasses import dataclass
 
 from ..deployers import BaseDeployer
 from ..monitoring.health_checker import DeploymentHealthChecker
@@ -14,7 +13,7 @@ from ..monitoring.health_checker import DeploymentHealthChecker
 class CanaryStrategy:
     """Gradually shift traffic to a new deployment while monitoring health."""
 
-    baseline_endpoint: Optional[str] = None
+    baseline_endpoint: str | None = None
     steps: int = 5
     delay: float = 1.0
 
@@ -25,7 +24,7 @@ class CanaryStrategy:
         health_checker: DeploymentHealthChecker,
     ) -> str:
         new_endpoint = await deployer.deploy(model_path, {})
-        healthy = await health_checker.check(new_endpoint)
+        healthy = await health_checker.check(new_endpoint, deployer)
         if not healthy:
             await deployer.delete(new_endpoint)
             raise RuntimeError("Canary deployment failed health checks")

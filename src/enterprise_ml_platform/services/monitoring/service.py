@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Central monitoring service for the ML platform.
 
 The :class:`MonitoringService` orchestrates metric collection, drift detection,
@@ -7,17 +5,19 @@ performance tracking and alert dispatching.  The implementation focuses on
 extensibility while keeping the runtime footprint light for tests.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
+from .alerting.alert_manager import AlertManager
+from .alerting.rules_engine import AlertRule, RulesEngine
+from .automated_response import AutomatedResponder
 from .collectors.metrics_collector import MetricsCollector
 from .drift_detection.drift_analyzer import DriftAnalyzer
 from .performance_tracking import PerformanceTracker
-from .alerting.alert_manager import AlertManager
-from .alerting.rules_engine import Alert, AlertRule, RulesEngine
-from .automated_response import AutomatedResponder
 
 logger = structlog.get_logger(__name__)
 
@@ -29,9 +29,9 @@ class PredictionEvent:
     model_name: str
     latency: float
     predicted: float
-    actual: Optional[float] = None
-    features: Optional[Dict[str, Any]] = None
-    confidence: Optional[float] = None
+    actual: float | None = None
+    features: dict[str, Any] | None = None
+    confidence: float | None = None
 
 
 class MonitoringService:
@@ -49,12 +49,12 @@ class MonitoringService:
 
     def __init__(
         self,
-        metrics: Optional[MetricsCollector] = None,
-        drift_analyzer: Optional[DriftAnalyzer] = None,
-        performance_monitor: Optional[PerformanceTracker] = None,
-        alert_manager: Optional[AlertManager] = None,
-        rules_engine: Optional[RulesEngine] = None,
-        responder: Optional[AutomatedResponder] = None,
+        metrics: MetricsCollector | None = None,
+        drift_analyzer: DriftAnalyzer | None = None,
+        performance_monitor: PerformanceTracker | None = None,
+        alert_manager: AlertManager | None = None,
+        rules_engine: RulesEngine | None = None,
+        responder: AutomatedResponder | None = None,
     ) -> None:
         self.metrics = metrics or MetricsCollector()
         self.drift_analyzer = drift_analyzer or DriftAnalyzer()
@@ -68,7 +68,7 @@ class MonitoringService:
         logger.debug("handle_event", model=event.model_name)
         self.metrics.record_prediction(event.model_name, event.latency)
 
-        metric_values: Dict[str, float] = {}
+        metric_values: dict[str, float] = {}
 
         if event.actual is not None:
             accuracy = self.performance_monitor.update(

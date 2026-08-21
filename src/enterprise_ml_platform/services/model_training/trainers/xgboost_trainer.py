@@ -1,13 +1,13 @@
-from __future__ import annotations
-
 """XGBoost model trainer."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
-from sklearn.metrics import accuracy_score, r2_score
 import structlog
+from sklearn.metrics import accuracy_score, r2_score
 
 try:  # pragma: no cover - optional dependency
     import xgboost as xgb
@@ -28,15 +28,15 @@ class XGBoostTrainer(ModelTrainer):
     available and ``distributed`` is set to ``True``.
     """
 
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     distributed: bool = False
 
     def train(
         self,
         features: np.ndarray,
         targets: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
     ) -> Any:
         """Train an XGBoost model.
 
@@ -57,11 +57,11 @@ class XGBoostTrainer(ModelTrainer):
         model_cls = xgb.XGBClassifier if is_classification else xgb.XGBRegressor
         model = model_cls(**self.params)
 
-        eval_set: Optional[Tuple[np.ndarray, np.ndarray]] = None
+        eval_set: tuple[np.ndarray, np.ndarray] | None = None
         if X_val is not None and y_val is not None:
             eval_set = (X_val, y_val)
 
-        fit_kwargs: Dict[str, Any] = {}
+        fit_kwargs: dict[str, Any] = {}
         if eval_set is not None and self.params.get("early_stopping_rounds"):
             fit_kwargs["eval_set"] = [eval_set]
             fit_kwargs["verbose"] = False
@@ -71,7 +71,7 @@ class XGBoostTrainer(ModelTrainer):
 
     def evaluate(
         self, model: Any, features: np.ndarray, targets: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Evaluate the trained model."""
         preds = model.predict(features)
         if len(np.unique(targets)) < 20:
@@ -82,7 +82,7 @@ class XGBoostTrainer(ModelTrainer):
         """Persist the model to ``path``."""
         model.save_model(path)
 
-    def feature_importance(self, model: Any) -> Dict[str, float]:
+    def feature_importance(self, model: Any) -> dict[str, float]:
         """Return feature importance scores."""
         if xgb is None:
             return {}

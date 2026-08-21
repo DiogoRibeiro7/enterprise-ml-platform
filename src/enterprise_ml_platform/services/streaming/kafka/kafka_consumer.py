@@ -1,7 +1,9 @@
 """Kafka consumer utilities for streaming pipeline."""
+
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 try:  # pragma: no cover - optional dependency
     from aiokafka import AIOKafkaConsumer
@@ -29,7 +31,7 @@ class KafkaConsumer:
         self.group_id = group_id
         self.concurrency = concurrency
         self.enable_auto_commit = enable_auto_commit
-        self._consumer: Optional[AIOKafkaConsumer] = None
+        self._consumer: AIOKafkaConsumer | None = None
         self.logger = logger.bind(component="kafka-consumer")
 
     async def start(self) -> None:
@@ -49,7 +51,7 @@ class KafkaConsumer:
             await self._consumer.stop()
             self.logger.info("consumer-stopped")
 
-    async def consume(self) -> AsyncIterator[Dict[str, Any]]:
+    async def consume(self) -> AsyncIterator[dict[str, Any]]:
         if not self._consumer:
             raise RuntimeError("consumer not started")
         async for msg in self._consumer:

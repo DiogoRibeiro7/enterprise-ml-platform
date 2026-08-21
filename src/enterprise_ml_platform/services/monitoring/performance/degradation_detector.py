@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Detect performance degradation over a rolling window."""
 
+from __future__ import annotations
+
 from collections import defaultdict, deque
-from typing import Deque, Dict
 
 
 class DegradationDetector:
@@ -12,7 +11,9 @@ class DegradationDetector:
     def __init__(self, window: int = 5, threshold: float = 0.1) -> None:
         self.window = window
         self.threshold = threshold
-        self.history: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window))
+        self.history: dict[str, deque[float]] = defaultdict(
+            lambda: deque(maxlen=window)
+        )
 
     def add(self, model: str, accuracy: float) -> bool:
         """Add accuracy value and return ``True`` if degradation is detected."""

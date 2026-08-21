@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import structlog
@@ -26,8 +27,8 @@ class DataSource:
 
     name: str
     type: str  # ``"s3"``, ``"postgres"`` or ``"kafka"``
-    connection: Dict[str, Any]
-    quality_rules: Optional[List[Dict[str, Any]]] = None
+    connection: dict[str, Any]
+    quality_rules: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -65,14 +66,14 @@ class DataIngestionService:
 
     def __init__(
         self,
-        cache_config: Optional[Dict[str, Any]] = None,
-        validator: Optional[DataValidator] = None,
+        cache_config: dict[str, Any] | None = None,
+        validator: DataValidator | None = None,
     ) -> None:
         self.cache_config = cache_config or {}
         self.validator = validator or DataValidator()
-        self._sources: Dict[str, DataSource] = {}
-        self._connectors: Dict[str, AsyncDataConnector] = {}
-        self._cache: Optional[aioredis.Redis] = None
+        self._sources: dict[str, DataSource] = {}
+        self._connectors: dict[str, AsyncDataConnector] = {}
+        self._cache: aioredis.Redis | None = None
         self.metrics = IngestionMetrics()
         self._log = structlog.get_logger().bind(service="data_ingestion")
 
@@ -107,7 +108,9 @@ class DataIngestionService:
         self._connectors[source.name] = connector
 
     # ------------------------------------------------------------------
-    async def ingest(self, name: str, read_config: Dict[str, Any]) -> AsyncIterator[pd.DataFrame]:
+    async def ingest(
+        self, name: str, read_config: dict[str, Any]
+    ) -> AsyncIterator[pd.DataFrame]:
         """Ingest data for the registered source ``name``.
 
         This method streams batches of data frames after applying validation
@@ -149,11 +152,16 @@ class DataIngestionService:
             )
 
     # ------------------------------------------------------------------
-    def _cache_key(self, name: str, config: Dict[str, Any]) -> str:
-        digest = hashlib.md5(str(config).encode()).hexdigest()
+    def _cache_key(self, name: str, config: dict[str, Any]) -> str:
+        """Return the cache key for one ingestion configuration.
+
+        MD5 is used to shorten the configuration into a key, not to protect
+        anything, so a collision costs a cache miss and nothing more.
+        """
+        digest = hashlib.md5(str(config).encode(), usedforsecurity=False).hexdigest()
         return f"ingestion:{name}:{digest}"
 
-    async def _get_cache(self, key: str) -> Optional[pd.DataFrame]:
+    async def _get_cache(self, key: str) -> pd.DataFrame | None:
         try:
             data = await self._cache.get(key) if self._cache else None
             if data:
@@ -163,8 +171,10 @@ class DataIngestionService:
         return None
 
     async def _set_cache(self, key: str, frame: pd.DataFrame) -> None:
+        if self._cache is None:
+            return
         try:
             ttl = self.cache_config.get("ttl_seconds", 3600)
-            await self._cache.setex(key, ttl, frame.to_json(orient="records"))  # type: ignore[arg-type]
+            await self._cache.setex(key, ttl, frame.to_json(orient="records"))
         except Exception as exc:  # pragma: no cover - cache failure
             self._log.warning("cache store failed", error=str(exc))

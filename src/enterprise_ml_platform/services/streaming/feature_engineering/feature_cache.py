@@ -1,8 +1,9 @@
 """Low-latency in-memory feature cache."""
+
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class FeatureCache:
@@ -10,9 +11,9 @@ class FeatureCache:
 
     def __init__(self, ttl_seconds: float = 60.0) -> None:
         self.ttl = ttl_seconds
-        self._store: Dict[str, tuple[float, Dict[str, Any]]] = {}
+        self._store: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    async def get(self, key: str) -> Optional[Dict[str, Any]]:
+    async def get(self, key: str) -> dict[str, Any] | None:
         entry = self._store.get(key)
         if not entry:
             return None
@@ -22,5 +23,5 @@ class FeatureCache:
             return None
         return value
 
-    async def set(self, key: str, value: Dict[str, Any]) -> None:
+    async def set(self, key: str, value: dict[str, Any]) -> None:
         self._store[key] = (time.time(), value)

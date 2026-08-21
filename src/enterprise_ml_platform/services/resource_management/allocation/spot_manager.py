@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Manage spot instance lifecycle."""
+
+from __future__ import annotations
 
 
 class SpotManager:

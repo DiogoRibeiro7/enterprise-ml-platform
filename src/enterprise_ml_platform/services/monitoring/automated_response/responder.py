@@ -1,8 +1,8 @@
-from __future__ import annotations
-
 """Automated response manager for monitoring alerts."""
 
-from typing import Awaitable, Callable, Iterable
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable, Iterable
 
 import structlog
 
@@ -19,8 +19,12 @@ class AutomatedResponder:
         retrain: Callable[[Alert], Awaitable[None]] | None = None,
         rollback: Callable[[Alert], Awaitable[None]] | None = None,
     ) -> None:
-        self.retrain = retrain or (lambda alert: logger.info("retrain_trigger", alert=alert))
-        self.rollback = rollback or (lambda alert: logger.info("rollback_trigger", alert=alert))
+        self.retrain = retrain or (
+            lambda alert: logger.info("retrain_trigger", alert=alert)
+        )
+        self.rollback = rollback or (
+            lambda alert: logger.info("rollback_trigger", alert=alert)
+        )
 
     async def handle(self, alerts: Iterable[Alert]) -> None:
         for alert in alerts:

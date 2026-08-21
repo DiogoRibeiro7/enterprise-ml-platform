@@ -1,7 +1,8 @@
 """Online learning algorithms for streaming data."""
+
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 import numpy as np
 from sklearn.linear_model import SGDClassifier
@@ -10,12 +11,15 @@ from sklearn.linear_model import SGDClassifier
 class OnlineLearner:
     """Wrap a scikit-learn model for incremental updates."""
 
-    def __init__(self, model: Optional[SGDClassifier] = None) -> None:
+    def __init__(self, model: SGDClassifier | None = None) -> None:
         self.model = model or SGDClassifier(loss="log_loss")
-        self._classes: Optional[np.ndarray] = None
+        self._classes: np.ndarray | None = None
 
     async def partial_fit(
-        self, features: Iterable[float], label: int, classes: Optional[Iterable[int]] = None
+        self,
+        features: Iterable[float],
+        label: int,
+        classes: Iterable[int] | None = None,
     ) -> None:
         X = np.asarray([list(features)])
         y = np.asarray([label])

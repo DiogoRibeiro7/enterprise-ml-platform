@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
 
 
 @dataclass
@@ -16,10 +15,10 @@ class RBACManager:
     feature complete enough for unit tests and examples.
     """
 
-    role_permissions: Dict[str, Set[str]] = field(default_factory=dict)
-    user_roles: Dict[str, Set[str]] = field(default_factory=dict)
+    role_permissions: dict[str, set[str]] = field(default_factory=dict)
+    user_roles: dict[str, set[str]] = field(default_factory=dict)
 
-    def add_role(self, role: str, permissions: List[str]) -> None:
+    def add_role(self, role: str, permissions: list[str]) -> None:
         self.role_permissions.setdefault(role, set()).update(permissions)
 
     def assign_role(self, user: str, role: str) -> None:

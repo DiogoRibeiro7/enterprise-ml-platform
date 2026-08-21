@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -15,10 +14,10 @@ class AnomalyDetector:
 
     threshold: float = 3.0
 
-    def detect(self, df: pd.DataFrame) -> Dict[str, List[int]]:
+    def detect(self, df: pd.DataFrame) -> dict[str, list[int]]:
         """Return indices of rows considered anomalous per column."""
 
-        anomalies: Dict[str, List[int]] = {}
+        anomalies: dict[str, list[int]] = {}
         numeric = df.select_dtypes(include=[np.number])
         for col in numeric.columns:
             series = numeric[col]

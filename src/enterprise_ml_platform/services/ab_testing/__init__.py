@@ -1,9 +1,9 @@
 """A/B testing service for model comparison and gradual rollouts."""
 
-from .experiment_manager import ExperimentManager, ExperimentConfig
-from .traffic_router import TrafficRouter
-from .statistical_analyzer import StatisticalAnalyzer
 from .decision_engine import DecisionEngine
+from .experiment_manager import ExperimentConfig, ExperimentManager
+from .statistical_analyzer import StatisticalAnalyzer
+from .traffic_router import TrafficRouter
 
 __all__ = [
     "ExperimentManager",

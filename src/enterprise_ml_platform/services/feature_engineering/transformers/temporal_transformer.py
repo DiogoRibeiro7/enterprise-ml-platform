@@ -1,9 +1,10 @@
 """Temporal feature transformer."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from ....core.base_components import FeatureTransformer
 class TemporalFeatureTransformer(FeatureTransformer):
     """Generate features from datetime columns."""
 
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     def fit(self, data: pd.DataFrame) -> TemporalFeatureTransformer:  # type: ignore[override]
         return self

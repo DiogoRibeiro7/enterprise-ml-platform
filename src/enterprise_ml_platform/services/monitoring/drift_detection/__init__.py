@@ -1,9 +1,9 @@
 """Drift detection utilities."""
 
-from .drift_analyzer import DriftAnalyzer
-from .statistical_drift import StatisticalDriftDetector
-from .ml_drift import MLDriftDetector
 from .advanced_drift import AdvancedDriftDetector, ConceptDriftDetector
+from .drift_analyzer import DriftAnalyzer
+from .ml_drift import MLDriftDetector
+from .statistical_drift import StatisticalDriftDetector
 
 __all__ = [
     "DriftAnalyzer",

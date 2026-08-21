@@ -1,7 +1,9 @@
 """Dynamic dashboard construction utilities."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class DashboardBuilder:
@@ -12,6 +14,8 @@ class DashboardBuilder:
     chart descriptors into a dictionary structure.
     """
 
-    def build(self, metrics: Dict[str, float], charts: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    def build(
+        self, metrics: dict[str, float], charts: Iterable[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Assemble a dashboard description from metrics and charts."""
         return {"metrics": metrics, "charts": list(charts)}

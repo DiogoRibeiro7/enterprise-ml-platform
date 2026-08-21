@@ -1,7 +1,8 @@
 """Kafka producer utilities for streaming pipeline."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:  # pragma: no cover - optional dependency
     from aiokafka import AIOKafkaProducer
@@ -25,7 +26,7 @@ class KafkaProducer:
         self.topic = topic
         self.bootstrap_servers = bootstrap_servers
         self.compression_type = compression_type
-        self._producer: Optional[AIOKafkaProducer] = None
+        self._producer: AIOKafkaProducer | None = None
         self.logger = logger.bind(component="kafka-producer")
 
     async def start(self) -> None:
@@ -43,7 +44,9 @@ class KafkaProducer:
             await self._producer.stop()
             self.logger.info("producer-stopped")
 
-    async def send(self, message: Dict[str, Any]) -> None:
+    async def send(self, message: dict[str, Any]) -> None:
         if not self._producer:
             raise RuntimeError("producer not started")
-        await self._producer.send_and_wait(self.topic, value=message.get("value"), key=message.get("key"))
+        await self._producer.send_and_wait(
+            self.topic, value=message.get("value"), key=message.get("key")
+        )

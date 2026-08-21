@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 """Distributed hyperparameter optimisation via Ray Tune."""
 
-from dataclasses import dataclass
-from typing import Any, Dict
+from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
+from typing import Any
 
 try:  # pragma: no cover - optional dependency
     import ray
@@ -26,12 +25,12 @@ class RayOptimizer:
         trainer_factory,
         X,
         y,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         if ray is None or tune is None:  # pragma: no cover - runtime check
             raise ImportError("ray[tune] is required for distributed optimization")
 
-        search_space: Dict[str, Any] = {}
+        search_space: dict[str, Any] = {}
         for name, spec in config["params"].items():
             if spec["type"] in {"int", "float"}:
                 search_space[name] = tune.uniform(spec["low"], spec["high"])
@@ -54,4 +53,6 @@ class RayOptimizer:
             ),
         )
         result = await asyncio.get_event_loop().run_in_executor(None, tuner.fit)
-        return result.get_best_result(metric=self.metric, mode=config.get("direction", "max")).config
+        return result.get_best_result(
+            metric=self.metric, mode=config.get("direction", "max")
+        ).config

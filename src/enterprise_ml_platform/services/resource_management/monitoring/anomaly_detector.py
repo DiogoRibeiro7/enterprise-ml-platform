@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Simple statistical anomaly detection for cost spikes."""
 
+from __future__ import annotations
+
 import statistics
-from typing import List
 
 
 class AnomalyDetector:
@@ -13,7 +12,7 @@ class AnomalyDetector:
         # Lower default so moderate spikes are flagged in tests
         self.threshold = threshold
 
-    def detect(self, series: List[float]) -> bool:
+    def detect(self, series: list[float]) -> bool:
         if len(series) < 2:
             return False
         mean = statistics.mean(series)

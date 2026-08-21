@@ -1,8 +1,8 @@
-from __future__ import annotations
 """Very small in-memory resource tracker."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict
 
 import structlog
 
@@ -34,5 +34,9 @@ class ResourceManager:
         self.usage.memory -= memory
         self.usage.gpu -= gpu
 
-    def snapshot(self) -> Dict[str, int]:
-        return {"cpu": self.usage.cpu, "memory": self.usage.memory, "gpu": self.usage.gpu}
+    def snapshot(self) -> dict[str, int]:
+        return {
+            "cpu": self.usage.cpu,
+            "memory": self.usage.memory,
+            "gpu": self.usage.gpu,
+        }

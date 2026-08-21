@@ -1,7 +1,6 @@
 """Schemas describing model metadata."""
-from __future__ import annotations
 
-from typing import Dict, Optional
+from __future__ import annotations
 
 from pydantic import BaseModel
 
@@ -11,5 +10,5 @@ class ModelInfo(BaseModel):
 
     name: str
     version: str
-    description: Optional[str] = None
-    metrics: Optional[Dict[str, float]] = None
+    description: str | None = None
+    metrics: dict[str, float] | None = None

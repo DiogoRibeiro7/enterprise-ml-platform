@@ -1,23 +1,24 @@
 """Feature selection utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, f_classif, mutual_info_classif
 from sklearn.linear_model import LassoCV
-from sklearn.ensemble import RandomForestClassifier
 
 
 @dataclass
 class FeatureSelector:
     """Automated feature selection helper."""
 
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
-    def select(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> pd.DataFrame:
+    def select(self, X: pd.DataFrame, y: pd.Series | None = None) -> pd.DataFrame:
         if not self.config.get("enabled", True) or y is None:
             return X
         method = self.config.get("method", "univariate")
@@ -35,7 +36,9 @@ class FeatureSelector:
             return X[cols]
         if method == "lasso":
             model = LassoCV(cv=5).fit(X, y)
-            cols = X.columns[np.abs(model.coef_) > float(self.config.get("lasso_threshold", 1e-5))]
+            cols = X.columns[
+                np.abs(model.coef_) > float(self.config.get("lasso_threshold", 1e-5))
+            ]
             return X[cols]
         if method == "tree":
             model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -48,6 +51,8 @@ class FeatureSelector:
             thresh = float(self.config.get("threshold", 0.9))
             corr = X.corr().abs()
             upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
-            to_drop = [column for column in upper.columns if any(upper[column] > thresh)]
+            to_drop = [
+                column for column in upper.columns if any(upper[column] > thresh)
+            ]
             return X.drop(columns=to_drop)
         return X

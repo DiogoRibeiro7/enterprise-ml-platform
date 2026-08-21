@@ -1,11 +1,11 @@
-from __future__ import annotations
 """Simple in-memory feature registry with optional JSON persistence."""
 
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Dict, Optional
-import json
+from __future__ import annotations
+
 import datetime as dt
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -15,8 +15,8 @@ class FeatureDescriptor:
     name: str
     version: str
     created_at: dt.datetime
-    schema: Dict[str, str]
-    lineage: Optional[Dict[str, str]] = None
+    schema: dict[str, str]
+    lineage: dict[str, str] | None = None
 
 
 class FeatureRegistry:
@@ -27,9 +27,9 @@ class FeatureRegistry:
     would likely use a proper metadata database instead.
     """
 
-    def __init__(self, path: Optional[Path] = None) -> None:
+    def __init__(self, path: Path | None = None) -> None:
         self.path = path
-        self._registry: Dict[str, Dict[str, FeatureDescriptor]] = {}
+        self._registry: dict[str, dict[str, FeatureDescriptor]] = {}
         if path and path.exists():
             self._load()
 
@@ -53,7 +53,7 @@ class FeatureRegistry:
     def _save(self) -> None:
         if not self.path:
             return
-        data: Dict[str, Dict[str, Dict]] = {}
+        data: dict[str, dict[str, dict]] = {}
         for name, versions in self._registry.items():
             data[name] = {}
             for ver, desc in versions.items():
@@ -67,8 +67,8 @@ class FeatureRegistry:
         self,
         name: str,
         version: str,
-        schema: Dict[str, str],
-        lineage: Optional[Dict[str, str]] = None,
+        schema: dict[str, str],
+        lineage: dict[str, str] | None = None,
     ) -> FeatureDescriptor:
         desc = FeatureDescriptor(
             name=name,
@@ -82,7 +82,7 @@ class FeatureRegistry:
         return desc
 
     # ------------------------------------------------------------------
-    def get(self, name: str, version: Optional[str] = None) -> FeatureDescriptor:
+    def get(self, name: str, version: str | None = None) -> FeatureDescriptor:
         versions = self._registry.get(name, {})
         if not versions:
             raise KeyError(f"feature '{name}' not registered")

@@ -1,15 +1,16 @@
 """Business KPI calculation helpers."""
+
 from __future__ import annotations
 
-from typing import Dict, Iterable
+from collections.abc import Iterable
 
 
 class BusinessMetrics:
     """Computes simple aggregate metrics from record streams."""
 
-    def compute_kpis(self, records: Iterable[Dict[str, float]]) -> Dict[str, float]:
+    def compute_kpis(self, records: Iterable[dict[str, float]]) -> dict[str, float]:
         """Calculate basic KPIs from an iterable of numeric mappings."""
-        totals: Dict[str, float] = {}
+        totals: dict[str, float] = {}
         count = 0
         for rec in records:
             count += 1

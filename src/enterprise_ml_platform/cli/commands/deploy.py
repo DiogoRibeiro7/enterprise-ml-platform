@@ -1,4 +1,5 @@
 """Deployment management commands."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -41,7 +42,9 @@ def delete(deployment: str) -> None:
 
 
 @app.command()
-def logs(deployment: str, lines: int = typer.Option(100, help="Number of log lines")) -> None:
+def logs(
+    deployment: str, lines: int = typer.Option(100, help="Number of log lines")
+) -> None:
     """View deployment logs."""
     console.print(f"Showing last {lines} lines for {deployment}")
 

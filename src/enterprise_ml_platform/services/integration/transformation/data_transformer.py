@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -15,7 +15,7 @@ class DataTransformer:
     gateway can be exercised in tests.
     """
 
-    def transform_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    def transform_request(self, request: dict[str, Any]) -> dict[str, Any]:
         return request
 
     def transform_response(self, response: Any) -> Any:

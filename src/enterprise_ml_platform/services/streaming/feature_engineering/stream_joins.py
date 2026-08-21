@@ -1,17 +1,19 @@
 """Join streaming records with static tables or feature store."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 class StreamJoiner:
     """Perform simple key-based joins for enrichment."""
 
-    def __init__(self, key: str, table: Mapping[str, Dict[str, Any]]) -> None:
+    def __init__(self, key: str, table: Mapping[str, dict[str, Any]]) -> None:
         self.key = key
         self.table = table
 
-    async def join(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    async def join(self, features: dict[str, Any]) -> dict[str, Any]:
         join_value = features.get(self.key)
         if join_value is None:
             return features

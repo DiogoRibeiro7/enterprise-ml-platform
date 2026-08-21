@@ -1,12 +1,11 @@
-from __future__ import annotations
-
 """Simple Bayesian optimisation using Gaussian Processes."""
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
 
-import asyncio
 import math
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -24,20 +23,20 @@ class BayesianOptimizer:
         trainer_factory,
         X,
         y,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         params_config = config["params"]
         n_trials = config.get("n_trials", 10)
-        param_names: List[str] = []
-        bounds: List[Tuple[float, float]] = []
-        types: List[str] = []
+        param_names: list[str] = []
+        bounds: list[tuple[float, float]] = []
+        types: list[str] = []
         for name, spec in params_config.items():
             param_names.append(name)
             types.append(spec["type"])
-            bounds.append((float(spec["low"]), float(spec["high"])) )
+            bounds.append((float(spec["low"]), float(spec["high"])))
 
         async def evaluate(vec: np.ndarray) -> float:
-            params: Dict[str, Any] = {}
+            params: dict[str, Any] = {}
             for i, name in enumerate(param_names):
                 val = vec[i]
                 if types[i] == "int":
@@ -50,15 +49,15 @@ class BayesianOptimizer:
 
         def sample_random() -> np.ndarray:
             vals = []
-            for (low, high), t in zip(bounds, types):
+            for (low, high), t in zip(bounds, types, strict=True):
                 if t == "int":
                     vals.append(np.random.randint(math.floor(low), math.ceil(high) + 1))
                 else:
                     vals.append(np.random.uniform(low, high))
             return np.array(vals, dtype=float)
 
-        X_samples: List[np.ndarray] = []
-        y_samples: List[float] = []
+        X_samples: list[np.ndarray] = []
+        y_samples: list[float] = []
 
         for _ in range(min(self.n_init, n_trials)):
             x0 = sample_random()
@@ -90,7 +89,7 @@ class BayesianOptimizer:
 
         best_idx = int(np.argmax(y_samples))
         best_vec = X_samples[best_idx]
-        best_params: Dict[str, Any] = {}
+        best_params: dict[str, Any] = {}
         for i, name in enumerate(param_names):
             val = best_vec[i]
             if types[i] == "int":

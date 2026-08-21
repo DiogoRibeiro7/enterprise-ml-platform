@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import time
-from typing import Dict, Tuple
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -13,7 +12,7 @@ class RateLimiter:
 
     rate: int
     per: float
-    buckets: Dict[str, Tuple[float, float]] = field(default_factory=dict)
+    buckets: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     def allow(self, key: str) -> bool:
         tokens, last = self.buckets.get(key, (float(self.rate), time.time()))

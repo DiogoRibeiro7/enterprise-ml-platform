@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Minimal Slack notification client."""
+
+from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass

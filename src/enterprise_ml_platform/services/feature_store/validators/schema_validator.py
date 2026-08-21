@@ -1,8 +1,9 @@
-from __future__ import annotations
 """Simple schema validator using pandas dtypes."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict
+
 import pandas as pd
 
 
@@ -10,7 +11,7 @@ import pandas as pd
 class FeatureSchemaValidator:
     """Validate pandas DataFrames against an expected schema."""
 
-    expected_schema: Dict[str, str]
+    expected_schema: dict[str, str]
 
     def validate(self, df: pd.DataFrame) -> None:
         missing = set(self.expected_schema) - set(df.columns)

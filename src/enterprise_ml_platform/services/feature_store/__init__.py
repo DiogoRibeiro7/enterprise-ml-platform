@@ -1,16 +1,26 @@
 """Feature store services providing online/offline access to features."""
-from .feature_store_service import FeatureStoreService, FeatureStoreConfig
-from .online_store import OnlineFeatureStore
-from .offline_store import OfflineFeatureStore
-from .feature_registry import FeatureRegistry, FeatureDescriptor
+
+from .feature_registry import FeatureDescriptor, FeatureRegistry
+from .feature_store_service import FeatureStoreConfig, FeatureStoreService
+from .offline_store import (
+    InMemoryOfflineStore,
+    OfflineFeatureStore,
+    OfflineStore,
+    ParquetOfflineStore,
+)
+from .online_store import OnlineFeatureStore, build_key
 from .validators import FeatureSchemaValidator
 
 __all__ = [
     "FeatureStoreService",
     "FeatureStoreConfig",
     "OnlineFeatureStore",
+    "OfflineStore",
+    "InMemoryOfflineStore",
+    "ParquetOfflineStore",
     "OfflineFeatureStore",
     "FeatureRegistry",
     "FeatureDescriptor",
     "FeatureSchemaValidator",
+    "build_key",
 ]

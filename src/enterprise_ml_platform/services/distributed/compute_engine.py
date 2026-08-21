@@ -1,4 +1,3 @@
-from __future__ import annotations
 """Distributed computing orchestrator.
 
 The :class:`ComputeEngine` glues together the various cluster managers, the
@@ -7,18 +6,21 @@ is intentionally compact but showcases how different distributed frameworks
 could be abstracted behind a single interface.
 """
 
-from typing import Any, Callable
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 
-from .ray.ray_cluster_manager import RayClusterManager
 from .dask.dask_cluster_manager import DaskClusterManager
-from .spark.spark_cluster_manager import SparkClusterManager
-from .scheduling.task_scheduler import TaskScheduler
-from .resource.resource_manager import ResourceManager
 from .fault_tolerance.failure_detector import FailureDetector
 from .load_balancing.load_balancer import LoadBalancer
 from .monitoring.cluster_monitor import ClusterMonitor
+from .ray.ray_cluster_manager import RayClusterManager
+from .resource.resource_manager import ResourceManager
+from .scheduling.task_scheduler import TaskScheduler
+from .spark.spark_cluster_manager import SparkClusterManager
 
 logger = structlog.get_logger(__name__)
 

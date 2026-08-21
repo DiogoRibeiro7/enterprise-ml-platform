@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Automated cleanup of unused resources."""
+
+from __future__ import annotations
 
 
 class CleanupManager:

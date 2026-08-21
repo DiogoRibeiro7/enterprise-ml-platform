@@ -1,7 +1,9 @@
 """Lightweight chart builder used by the analytics engine."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class ChartBuilder:
@@ -12,7 +14,9 @@ class ChartBuilder:
     returning dictionaries describing the desired chart.
     """
 
-    def build_charts(self, data: Iterable[Dict[str, Any]], metrics: Dict[str, float]) -> Iterable[Dict[str, Any]]:
+    def build_charts(
+        self, data: Iterable[dict[str, Any]], metrics: dict[str, float]
+    ) -> Iterable[dict[str, Any]]:
         """Create a basic bar chart for each metric."""
         charts = []
         for name, value in metrics.items():

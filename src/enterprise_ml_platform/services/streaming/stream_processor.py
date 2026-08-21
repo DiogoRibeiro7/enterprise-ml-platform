@@ -1,21 +1,23 @@
-from __future__ import annotations
 """Streaming pipeline orchestrator."""
+
+from __future__ import annotations
+
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
+from .checkpointing.checkpoint_manager import CheckpointManager
+from .continuous_learning.incremental_trainer import IncrementalTrainer
+from .feature_engineering.stream_feature_engine import StreamFeatureEngine
 from .kafka.kafka_consumer import KafkaConsumer
 from .kafka.kafka_producer import KafkaProducer
-from .transformers.stream_transformer import StreamTransformer
-from .predictors.stream_predictor import StreamPredictor
-from .windowing.window_manager import WindowManager
-from .feature_engineering.stream_feature_engine import StreamFeatureEngine
-from .continuous_learning.incremental_trainer import IncrementalTrainer
-from .state.state_manager import StateManager
 from .monitoring.stream_monitor import StreamMonitor
-from .checkpointing.checkpoint_manager import CheckpointManager
+from .predictors.stream_predictor import StreamPredictor
+from .state.state_manager import StateManager
+from .transformers.stream_transformer import StreamTransformer
+from .windowing.window_manager import WindowManager
 
 logger = structlog.get_logger()
 
@@ -45,12 +47,12 @@ class StreamProcessor:
         producer: KafkaProducer,
         transformer: StreamTransformer,
         predictor: StreamPredictor,
-        window_manager: Optional[WindowManager] = None,
-        state_manager: Optional[StateManager] = None,
-        monitor: Optional[StreamMonitor] = None,
-        checkpoint_manager: Optional[CheckpointManager] = None,
-        feature_engine: Optional[StreamFeatureEngine] = None,
-        incremental_trainer: Optional[IncrementalTrainer] = None,
+        window_manager: WindowManager | None = None,
+        state_manager: StateManager | None = None,
+        monitor: StreamMonitor | None = None,
+        checkpoint_manager: CheckpointManager | None = None,
+        feature_engine: StreamFeatureEngine | None = None,
+        incremental_trainer: IncrementalTrainer | None = None,
     ) -> None:
         self.consumer = consumer
         self.producer = producer
@@ -65,7 +67,7 @@ class StreamProcessor:
         self._running = False
         self.logger = logger.bind(component="stream-processor")
 
-    async def _handle_message(self, message: Dict[str, Any]) -> None:
+    async def _handle_message(self, message: dict[str, Any]) -> None:
         try:
             features = await self.transformer.transform(message)
             if self.feature_engine:
@@ -99,7 +101,10 @@ class StreamProcessor:
             return
         self._running = True
         await self.consumer.start()
-        tasks = [asyncio.create_task(self._consume()) for _ in range(self.consumer.concurrency)]
+        tasks = [
+            asyncio.create_task(self._consume())
+            for _ in range(self.consumer.concurrency)
+        ]
         self.logger.info("stream-started", tasks=len(tasks))
         await asyncio.gather(*tasks)
 

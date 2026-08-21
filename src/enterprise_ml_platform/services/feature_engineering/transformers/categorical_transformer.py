@@ -1,8 +1,9 @@
 """Categorical feature transformer with multiple encoding strategies."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -21,12 +22,14 @@ class CategoricalFeatureTransformer(FeatureTransformer):
         a target is supplied, in which case target encoding is used.
     """
 
-    config: Dict[str, Any]
-    _encoders: Dict[str, Dict[str, float]] = field(init=False, default_factory=dict)
+    config: dict[str, Any]
+    _encoders: dict[str, dict[str, float]] = field(init=False, default_factory=dict)
     _one_hot_cols: list[str] = field(init=False, default_factory=list)
     _freq_cols: list[str] = field(init=False, default_factory=list)
 
-    def fit(self, data: pd.DataFrame, target: Optional[pd.Series] = None) -> CategoricalFeatureTransformer:  # type: ignore[override]
+    def fit(
+        self, data: pd.DataFrame, target: pd.Series | None = None
+    ) -> CategoricalFeatureTransformer:  # type: ignore[override]
         cat_cols = data.select_dtypes(include=["object", "category"]).columns
         threshold = int(self.config.get("one_hot_threshold", 10))
         for col in cat_cols:
@@ -47,12 +50,16 @@ class CategoricalFeatureTransformer(FeatureTransformer):
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         result = data.copy()
         for col in self._one_hot_cols:
-            dummies = pd.get_dummies(result[col].astype(str).fillna("__MISSING__"), prefix=col)
+            dummies = pd.get_dummies(
+                result[col].astype(str).fillna("__MISSING__"), prefix=col
+            )
             result = result.drop(columns=[col]).join(dummies)
         for col, mapping in self._encoders.items():
             series = result[col].astype(str).fillna("__MISSING__")
             result[col] = series.map(mapping).fillna(0.0)
         return result
 
-    def fit_transform(self, data: pd.DataFrame, target: Optional[pd.Series] = None) -> pd.DataFrame:  # type: ignore[override]
+    def fit_transform(
+        self, data: pd.DataFrame, target: pd.Series | None = None
+    ) -> pd.DataFrame:  # type: ignore[override]
         return self.fit(data, target).transform(data)

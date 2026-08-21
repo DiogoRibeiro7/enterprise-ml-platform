@@ -1,8 +1,8 @@
 """Model management commands."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -37,7 +37,7 @@ def evaluate(model: str, data: Path) -> None:
 
 
 @app.command()
-def compare(models: List[str] = typer.Argument(...)) -> None:
+def compare(models: list[str] = typer.Argument(...)) -> None:
     """Compare multiple models."""
     console.print(f"Comparing models: {', '.join(models)}")
 
@@ -55,13 +55,13 @@ def export(model: str, output: Path) -> None:
 
 
 @app.command()
-def import_model(path: Path, name: Optional[str] = typer.Option(None)) -> None:
+def import_model(path: Path, name: str | None = typer.Option(None)) -> None:
     """Import a pre-trained model."""
     console.print(f"Imported model from {path} as {name or path.stem}")
 
 
 @app.command("list")
-def list_models(status: Optional[str] = typer.Option(None)) -> None:
+def list_models(status: str | None = typer.Option(None)) -> None:
     """List models with optional status filter."""
     console.print(f"Listing models with status {status or 'any'}")
 

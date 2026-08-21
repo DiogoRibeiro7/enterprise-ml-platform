@@ -1,12 +1,12 @@
-from __future__ import annotations
-
 """Alert manager dispatching notifications to various channels."""
 
-from typing import Dict, Iterable
+from __future__ import annotations
+
+from collections.abc import Iterable
 
 import structlog
 
-from .notification_clients import EmailClient, SlackClient, PagerDutyClient
+from .notification_clients import EmailClient, PagerDutyClient, SlackClient
 from .rules_engine import Alert
 
 logger = structlog.get_logger(__name__)
@@ -15,7 +15,7 @@ logger = structlog.get_logger(__name__)
 class AlertManager:
     """Dispatch alerts to registered notification clients."""
 
-    def __init__(self, clients: Dict[str, object] | None = None) -> None:
+    def __init__(self, clients: dict[str, object] | None = None) -> None:
         self.clients = clients or {
             "email": EmailClient(),
             "slack": SlackClient(),

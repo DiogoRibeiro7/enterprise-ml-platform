@@ -1,23 +1,18 @@
-from __future__ import annotations
-
 """High level model registry service orchestrating sub-components."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
-try:  # pragma: no cover - optional dependency
-    import mlflow
-except Exception:  # pragma: no cover
-    mlflow = None  # type: ignore
-
-from .versioning.version_manager import VersionManager
-from .metadata.metadata_store import MetadataStore
-from .lineage.lineage_tracker import LineageTracker
-from .governance.model_governance import ModelGovernance
-from .storage.artifact_store import ArtifactStore
-from .search.model_search import ModelSearch
 from .comparison.model_comparator import ModelComparator
 from .export.model_exporter import ModelExporter
+from .governance.model_governance import ModelGovernance
+from .lineage.lineage_tracker import LineageTracker
+from .metadata.metadata_store import MetadataStore
+from .search.model_search import ModelSearch
+from .storage.artifact_store import ArtifactStore
+from .versioning.version_manager import VersionManager
 
 
 @dataclass
@@ -33,18 +28,25 @@ class ModelRegistry:
     comparator: ModelComparator = field(default_factory=ModelComparator)
     exporter: ModelExporter = field(default_factory=ModelExporter)
 
-    metrics: Dict[Tuple[str, str], Dict[str, float]] = field(default_factory=dict)
+    metrics: dict[tuple[str, str], dict[str, float]] = field(default_factory=dict)
 
     def register(
         self,
         name: str,
         model: Any,
-        metadata: Dict[str, Any] | None = None,
-        metrics: Dict[str, float] | None = None,
-        parents: List[Tuple[str, str]] | None = None,
-        datasets: List[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        metrics: dict[str, float] | None = None,
+        parents: list[tuple[str, str]] | None = None,
+        datasets: list[str] | None = None,
     ) -> str:
-        """Register a new model version and persist related information."""
+        """Register a new model version and persist related information.
+
+        Nothing is written to MLflow here. This registry owns no run, and
+        logging outside one makes MLflow open an implicit run and materialise
+        a tracking store in the current working directory. Use
+        :class:`~enterprise_ml_platform.services.model_registry.MLflowModelRegistry`
+        for tracked, versioned artifacts.
+        """
 
         version = self.version_manager.next_version(name)
         self.metadata_store.save(name, version, metadata or {})
@@ -53,8 +55,6 @@ class ModelRegistry:
         self.lineage_tracker.record(name, version, parents, datasets)
         self.artifact_store.save(name, version, model)
         self.governance.set_stage(name, version, "development")
-        if mlflow:
-            mlflow.log_params({"model": name, "version": version})
         return version
 
     def get(self, name: str, version: str | None = None) -> Any:
@@ -69,16 +69,16 @@ class ModelRegistry:
 
         self.governance.set_stage(name, version, stage)
 
-    def search(self, query: str) -> List[Tuple[str, str]]:
+    def search(self, query: str) -> list[tuple[str, str]]:
         """Search across metadata."""
 
         return self.search_engine.search(self.metadata_store.store, query)
 
     def compare(
         self,
-        model_a: Tuple[str, str],
-        model_b: Tuple[str, str],
-    ) -> Dict[str, float]:
+        model_a: tuple[str, str],
+        model_b: tuple[str, str],
+    ) -> dict[str, float]:
         """Compare two model versions based on logged metrics."""
 
         return self.comparator.compare(self.metrics, model_a, model_b)
@@ -89,7 +89,9 @@ class ModelRegistry:
         model = self.artifact_store.get(name, version)
         return self.exporter.export(model, fmt)
 
-    def auto_promote(self, name: str, version: str, metric: str, threshold: float) -> None:
+    def auto_promote(
+        self, name: str, version: str, metric: str, threshold: float
+    ) -> None:
         """Automatically promote model if metric exceeds ``threshold``."""
 
         score = self.metrics.get((name, version), {}).get(metric, 0.0)

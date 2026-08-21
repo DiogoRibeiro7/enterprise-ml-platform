@@ -1,7 +1,8 @@
 """Warm up online learners with historical data."""
+
 from __future__ import annotations
 
-from typing import Iterable, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 from .online_learner import OnlineLearner
 
@@ -12,7 +13,7 @@ class ModelWarmer:
     def __init__(
         self,
         learner: OnlineLearner,
-        warm_data: Sequence[Tuple[Iterable[float], int]],
+        warm_data: Sequence[tuple[Iterable[float], int]],
         classes: Iterable[int],
     ) -> None:
         self.learner = learner

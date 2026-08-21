@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 from .auth.auth_manager import AuthManager
-from .routing.request_router import RequestRouter
-from .rate_limiting.rate_limiter import RateLimiter
-from .transformation.data_transformer import DataTransformer
 from .caching.cache_manager import CacheManager
 from .connectors.enterprise_connectors import EnterpriseConnectors
 from .monitoring.gateway_monitor import GatewayMonitor
 from .policies.policy_engine import PolicyEngine
+from .rate_limiting.rate_limiter import RateLimiter
+from .routing.request_router import RequestRouter
+from .transformation.data_transformer import DataTransformer
 
 
 @dataclass
@@ -33,7 +33,7 @@ class APIGateway:
     monitor: GatewayMonitor = field(default_factory=GatewayMonitor)
     policies: PolicyEngine = field(default_factory=PolicyEngine)
 
-    def handle_http(self, request: Dict[str, Any]) -> Any:
+    def handle_http(self, request: dict[str, Any]) -> Any:
         """Process a generic HTTP request represented as a mapping."""
 
         user = self.auth.authenticate(request.get("headers", {}))
@@ -71,6 +71,6 @@ class APIGateway:
         request = {"path": "/graphql", "body": query, **kwargs}
         return self.handle_http(request)
 
-    def handle_websocket(self, message: Dict[str, Any]) -> Any:
+    def handle_websocket(self, message: dict[str, Any]) -> Any:
         message.setdefault("path", "/ws")
         return self.handle_http(message)

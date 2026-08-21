@@ -1,8 +1,9 @@
 """Composite feature transformer for interaction and ratio features."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ from ....core.base_components import FeatureTransformer
 class CompositeFeatureTransformer(FeatureTransformer):
     """Create features derived from combinations of existing columns."""
 
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     def fit(self, data: pd.DataFrame) -> CompositeFeatureTransformer:  # type: ignore[override]
         return self

@@ -1,7 +1,8 @@
 """Automated decision making for experiments."""
+
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any
 
 
 class DecisionEngine:
@@ -10,7 +11,9 @@ class DecisionEngine:
     def __init__(self, analyzer) -> None:
         self.analyzer = analyzer
 
-    def decide(self, experiment: str, analysis: Dict[str, Any], criteria: Dict[str, Any]) -> Dict[str, Any]:
+    def decide(
+        self, experiment: str, analysis: dict[str, Any], criteria: dict[str, Any]
+    ) -> dict[str, Any]:
         threshold = criteria.get("p_value", 0.05)
         t_p = analysis["t_test"]["p_value"]
         chi_p = analysis["chi_square"]["p_value"]

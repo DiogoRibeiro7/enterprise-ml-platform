@@ -1,15 +1,16 @@
 """Simple report scheduling abstraction."""
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List
 
 
 @dataclass
 class ReportScheduler:
     """Very small in-memory scheduler used for examples/tests."""
 
-    jobs: List[tuple[str, Callable[[], None]]] = field(default_factory=list)
+    jobs: list[tuple[str, Callable[[], None]]] = field(default_factory=list)
 
     def add_job(self, cron: str, job: Callable[[], None]) -> None:
         """Register a job.

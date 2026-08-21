@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, Optional
 import time
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -16,8 +15,8 @@ class AuthManager:
     helper covers enough surface area for tests and documentation examples.
     """
 
-    api_keys: Dict[str, str] = field(default_factory=dict)
-    tokens: Dict[str, tuple[str, float]] = field(default_factory=dict)
+    api_keys: dict[str, str] = field(default_factory=dict)
+    tokens: dict[str, tuple[str, float]] = field(default_factory=dict)
 
     def register_api_key(self, user: str, key: str) -> None:
         self.api_keys[key] = user
@@ -26,7 +25,7 @@ class AuthManager:
         self.tokens[token] = (user, time.time() + ttl)
         return token
 
-    def authenticate(self, headers: Dict[str, str]) -> Optional[str]:
+    def authenticate(self, headers: dict[str, str]) -> str | None:
         """Return the user identified by ``headers`` if any."""
 
         token = headers.get("Authorization")

@@ -1,12 +1,12 @@
-from __future__ import annotations
-
 """Combine multiple drift detectors and aggregate results."""
 
-from typing import Dict, Sequence
+from __future__ import annotations
 
+from collections.abc import Sequence
+
+from .advanced_drift import AdvancedDriftDetector, ConceptDriftDetector
 from .ml_drift import MLDriftDetector
 from .statistical_drift import StatisticalDriftDetector
-from .advanced_drift import AdvancedDriftDetector, ConceptDriftDetector
 
 
 class DriftAnalyzer:
@@ -27,7 +27,7 @@ class DriftAnalyzer:
 
     def fit(
         self,
-        reference: Dict[str, Sequence[float]],
+        reference: dict[str, Sequence[float]],
         confidences: Sequence[float] | None = None,
     ) -> None:
         self.statistical.fit(reference)
@@ -39,16 +39,16 @@ class DriftAnalyzer:
 
     def check(
         self,
-        current: Dict[str, Sequence[float]],
+        current: dict[str, Sequence[float]],
         confidences: Sequence[float] | None = None,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         if not self._fitted:
             self.fit(current, confidences)
-            return {name: 0.0 for name in current}
+            return dict.fromkeys(current, 0.0)
         stat_scores = self.statistical.detect(current)
         ml_scores = self.ml.predict(current)
         adv_scores = self.advanced.detect(current)
-        combined: Dict[str, float] = {}
+        combined: dict[str, float] = {}
         keys = set(stat_scores) | set(ml_scores) | set(adv_scores)
         for key in keys:
             combined[key] = (

@@ -67,13 +67,15 @@ dependencies = [
     "prometheus-client>=0.19,<1",
     "pyyaml>=6.0,<7",
 
-    # Online feature store and columnar IO
+    # Online feature store and columnar IO. The pyarrow floor is set by
+    # PYSEC-2026-113.
     "redis>=5.0,<7",
-    "pyarrow>=12.0",
+    "pyarrow>=23.0.1",
 
-    # Security primitives. The floor is set by PYSEC-2026-3552, which the
-    # dependency audit in CI flags on anything older.
-    "cryptography>=50.0",
+    # Security primitives. The floor cannot be raised past PYSEC-2026-3552
+    # (fixed in 50.0) while mlflow pins cryptography<50; the audit step in
+    # .github/workflows/security.yml carries the matching exception.
+    "cryptography>=45.0",
 
     # CLI front end
     "typer>=0.9,<1",
@@ -96,7 +98,9 @@ feature-store = [
 
 # Experiment tracking, model registry and hyperparameter search
 training = [
-    "mlflow>=2.8",
+    # The mlflow floor is set by the advisories the dependency audit reports
+    # against 3.14 and earlier; the API this project uses is unchanged.
+    "mlflow>=3.15",
     "optuna>=3.4",
     "xgboost>=2.0",
     "lightgbm>=4.0",

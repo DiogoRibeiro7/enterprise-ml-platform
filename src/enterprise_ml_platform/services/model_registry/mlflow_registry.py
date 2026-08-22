@@ -174,18 +174,39 @@ class MLflowModelRegistry:
         return self._to_info(mv)
 
     def list_versions(self, name: str) -> list[ModelVersionInfo]:
-        """Return every version of ``name``, newest first."""
+        """Return every version of ``name``, newest first, with its aliases.
+
+        ``search_model_versions`` leaves the alias list empty on every result,
+        so the aliases are read from the registered model and merged back in.
+        Without that, a caller asking which version is the champion is told
+        that none of them is.
+        """
         try:
             versions = self.client.search_model_versions(f"name='{name}'")
+            aliases = self._aliases_by_version(name)
         except MlflowException as exc:
             raise ModelRegistryError(
                 f"could not list versions of {name!r}: {exc}"
             ) from exc
         return sorted(
-            (self._to_info(mv) for mv in versions),
+            (self._to_info(mv, aliases.get(str(mv.version), ())) for mv in versions),
             key=lambda info: int(info.version),
             reverse=True,
         )
+
+    def _aliases_by_version(self, name: str) -> dict[str, tuple[str, ...]]:
+        """Return the aliases the registered model declares, keyed by version."""
+        registered = self.client.get_registered_model(name)
+        mapping: dict[str, list[str]] = {}
+        for alias in getattr(registered, "aliases", None) or []:
+            # Depending on the backend this is either a mapping of alias to
+            # version or a sequence of objects carrying both.
+            if isinstance(alias, str):
+                version = str(registered.aliases[alias])
+                mapping.setdefault(version, []).append(alias)
+            else:
+                mapping.setdefault(str(alias.version), []).append(alias.alias)
+        return {version: tuple(names) for version, names in mapping.items()}
 
     def list_models(self) -> list[str]:
         """Return the names of every registered model."""
@@ -284,14 +305,18 @@ class MLflowModelRegistry:
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _to_info(mv: Any) -> ModelVersionInfo:
+    def _to_info(mv: Any, aliases: tuple[str, ...] | None = None) -> ModelVersionInfo:
         created = getattr(mv, "creation_timestamp", None)
         return ModelVersionInfo(
             name=mv.name,
             version=str(mv.version),
             source=mv.source,
             run_id=getattr(mv, "run_id", None) or None,
-            aliases=tuple(getattr(mv, "aliases", ()) or ()),
+            aliases=(
+                aliases
+                if aliases is not None
+                else tuple(getattr(mv, "aliases", ()) or ())
+            ),
             tags=dict(getattr(mv, "tags", {}) or {}),
             description=getattr(mv, "description", None) or None,
             created_at=(

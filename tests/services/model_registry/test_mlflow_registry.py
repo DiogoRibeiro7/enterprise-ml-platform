@@ -205,3 +205,42 @@ def test_unknown_version_raises_a_typed_error(registry, logged_model) -> None:
 
     with pytest.raises(ModelRegistryError, match="no version"):
         registry.get_version("iris", "99")
+
+
+# ----------------------------------------------------------------------
+# Aliases survive a listing
+# ----------------------------------------------------------------------
+def test_list_versions_reports_which_version_holds_the_alias(
+    registry, logged_model
+) -> None:
+    """Regression: search_model_versions returns every alias list empty.
+
+    A caller asking which version is the champion was told that none of them
+    was, so a listing could not be used to answer the one question a registry
+    listing exists to answer.
+    """
+    registry.register("iris", logged_model())
+    v2 = registry.register("iris", logged_model())
+    registry.promote("iris", v2.version, CHAMPION)
+
+    listed = {v.version: v.aliases for v in registry.list_versions("iris")}
+
+    assert CHAMPION in listed[v2.version]
+    assert listed["1"] == ()
+
+
+def test_list_versions_tracks_the_alias_after_it_moves(registry, logged_model) -> None:
+    v1 = registry.register("iris", logged_model())
+    v2 = registry.register("iris", logged_model())
+    registry.promote("iris", v1.version, CHAMPION)
+    registry.promote("iris", v2.version, CHALLENGER)
+
+    listed = {v.version: set(v.aliases) for v in registry.list_versions("iris")}
+    assert listed[v1.version] == {CHAMPION}
+    assert listed[v2.version] == {CHALLENGER}
+
+    registry.promote("iris", v2.version, CHAMPION)
+
+    listed = {v.version: set(v.aliases) for v in registry.list_versions("iris")}
+    assert listed[v1.version] == set()
+    assert listed[v2.version] == {CHAMPION, CHALLENGER}

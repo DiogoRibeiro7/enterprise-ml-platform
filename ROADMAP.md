@@ -62,7 +62,9 @@ that stops it happening again unnoticed.
 
 ## Next
 
-Toward v0.2.0, in the order each becomes worth doing:
+In the order each becomes worth doing. Which release they land in is decided
+when they land, not here: a version number written down in advance is a claim
+that goes stale on its own.
 
 1. **Serving metrics that mean something.** Prediction count, latency
    percentiles and error rate per model version, exported and dashboarded, so

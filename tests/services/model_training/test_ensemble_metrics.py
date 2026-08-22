@@ -137,7 +137,9 @@ def test_regression_still_reports_r2() -> None:
     y = X[:, 0] * 3.0 + rng.normal(scale=0.1, size=120)
     from sklearn.linear_model import LinearRegression
 
-    trainer = EnsembleTrainer(estimators=[("lr", LinearRegression())], task="regression")
+    trainer = EnsembleTrainer(
+        estimators=[("lr", LinearRegression())], task="regression"
+    )
 
     metrics = trainer.evaluate(trainer.train(X, y), X, y)
 

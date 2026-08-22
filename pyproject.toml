@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enterprise-ml-platform"
-description = "A comprehensive, production-ready machine learning platform designed for enterprise environments"
+description = "A reference implementation of a production ML platform: versioned features, a model registry with alias-based promotion, serving and controlled deployment"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -26,7 +26,7 @@ keywords = [
     "monitoring"
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Information Technology",

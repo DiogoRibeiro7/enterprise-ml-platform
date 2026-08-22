@@ -29,25 +29,25 @@ most needs to be true before the next thing can be believed.
 - **SageMaker deployment.** Model, endpoint configuration and endpoint
   lifecycle, traffic weights, and rollback to a previous endpoint
   configuration. Tested against a stubbed AWS API.
+- **A worked end-to-end example.** One dataset carried through features,
+  point-in-time training set assembly, a tracked training run, registration,
+  promotion, serving and rollback, as a runnable script that needs nothing
+  external.
 - **CI.** ruff, mypy, the suite on Python 3.11–3.13, a packaging smoke test
   that installs the built wheel and runs the console scripts, a Docker build,
   bandit and a dependency audit.
 
 ## Next
 
-1. **A worked end-to-end example.** One dataset carried through the whole
-   lifecycle — ingestion, features, training, registration, promotion,
-   serving, drift — as a runnable script. The pieces exist and are tested
-   individually; nothing yet demonstrates them together.
-2. **Serving metrics that mean something.** Prediction count, latency
+1. **Serving metrics that mean something.** Prediction count, latency
    percentiles and error rate per model version, exported and dashboarded, so
    a promotion can be judged rather than assumed.
-3. **Drift monitoring wired to the served model.** Drift detection exists but
+2. **Drift monitoring wired to the served model.** Drift detection exists but
    nothing feeds it live serving traffic or acts on its output.
-4. **A real SageMaker run.** The deployer is verified against the API contract,
+3. **A real SageMaker run.** The deployer is verified against the API contract,
    not against AWS. One end-to-end deployment in a sandbox account would close
    the gap between "the calls are right" and "it deploys".
-5. **Type annotations for the legacy services.** `pyproject.toml` lists the
+4. **Type annotations for the legacy services.** `pyproject.toml` lists the
    modules still exempt from strict mypy. That list should only shrink.
 
 ## Not planned

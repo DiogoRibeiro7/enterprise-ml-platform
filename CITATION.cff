@@ -2,23 +2,40 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
 title: "Enterprise ML Platform"
-abstract: "Enterprise ML Platform is a production-oriented Python framework for building, operating, and monitoring machine learning systems in enterprise environments. The repository provides end-to-end MLOps components for multi-source data ingestion, feature engineering, distributed model training, model registry workflows, deployment automation, observability, drift detection, alerting, and data quality management. It includes API services, command-line tooling, tests, Docker and Kubernetes assets, Terraform infrastructure templates, monitoring dashboards, and example pipelines for domains such as fraud detection, natural language processing, computer vision, and time series forecasting."
+abstract: >-
+  A reference implementation of a production machine learning platform,
+  written to show how the parts of an ML system fit together: reproducible
+  training, versioned features, a model registry with alias-based promotion,
+  an HTTP serving layer, and controlled deployment to AWS SageMaker. It is a
+  study rather than a product. Pipeline orchestration with compensating
+  rollback, a Redis online feature store, a Parquet offline store with
+  point-in-time retrieval, an MLflow-backed model registry, and a FastAPI
+  serving layer are implemented and covered by tests; distributed training,
+  the security and compliance modules, and the Kubernetes and Terraform
+  assets are scaffolding and are labelled as such.
 authors:
   - family-names: "Ribeiro"
     given-names: "Diogo"
     affiliation: "ESMAD - Instituto Politécnico do Porto"
     orcid: "https://orcid.org/0009-0001-2022-7072"
+version: "v0.1.0"
+date-released: "2026-08-22"
 license: MIT
-repository-code: "https://github.com/diogoribeiro7/enterprise-ml-platform"
-url: "https://diogoribeiro7.github.io/enterprise-ml-platform"
+repository-code: "https://github.com/DiogoRibeiro7/enterprise-ml-platform"
+repository-artifact: "https://github.com/DiogoRibeiro7/enterprise-ml-platform/releases/tag/v0.1.0"
 keywords:
-  - machine-learning
-  - mlops
-  - data-science
-  - artificial-intelligence
-  - enterprise
-  - pipeline
-  - automation
-  - kubernetes
-  - cloud
-  - monitoring
+  - machine learning operations
+  - MLOps
+  - feature store
+  - point-in-time correctness
+  - model registry
+  - model deployment
+  - model serving
+  - pipeline orchestration
+  - reproducibility
+  - research software
+  - reference implementation
+  - MLflow
+  - Amazon SageMaker
+  - FastAPI
+  - Python

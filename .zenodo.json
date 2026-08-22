@@ -1,48 +1,49 @@
 {
-  "title": "Enterprise ML Platform",
   "upload_type": "software",
-  "publication_date": "2026-08-21",
-  "description": "Enterprise ML Platform is a production-oriented Python framework for building, operating, and monitoring machine learning systems in enterprise environments. The repository provides end-to-end MLOps components for multi-source data ingestion, feature engineering, distributed model training, model registry workflows, deployment automation, observability, drift detection, alerting, and data quality management. It includes API services, command-line tooling, tests, Docker and Kubernetes assets, Terraform infrastructure templates, monitoring dashboards, and example pipelines for domains such as fraud detection, natural language processing, computer vision, and time series forecasting.",
+  "title": "Enterprise ML Platform: a reference implementation of a production machine learning platform",
+  "language": "eng",
+  "access_right": "open",
+  "license": "mit",
+  "description": "<p>A reference implementation of a production machine learning platform, written to show how the parts of an ML system fit together: reproducible training, versioned features, a model registry with alias-based promotion, an HTTP serving layer, and controlled deployment to AWS SageMaker.</p><p>It is a study rather than a product, and the distinction is deliberate. Each capability below is exercised by the test suite; the parts that are scaffolding are labelled as such in the repository rather than described as if they worked.</p><h4>Implemented and tested</h4><ul><li><strong>Pipeline orchestration</strong> &mdash; directed acyclic graph validation, bounded concurrency, retries and a circuit breaker. When a stage fails, scheduling stops, outstanding stages are cancelled and awaited, and the stages that completed are compensated in reverse completion order.</li><li><strong>Feature store</strong> &mdash; a Redis online store keyed by feature set, version and entity, and a Parquet offline store queried through DuckDB. Point-in-time retrieval is verified, so a training set cannot contain a value recorded after the label it is paired with.</li><li><strong>Model registry</strong> &mdash; immutable versions backed by MLflow, with champion and challenger aliases. Promotion moves an alias rather than rebuilding an artifact, so the served model changes without redeployment, and rollback moves it back.</li><li><strong>Model serving</strong> &mdash; a FastAPI application that dispatches inference to a worker thread rather than blocking the event loop, validates input shape, bounds batch size, and reports the serving model version with every prediction.</li><li><strong>Deployment</strong> &mdash; the SageMaker model, endpoint configuration and endpoint lifecycle, traffic weighting across production variants, and rollback to a previous endpoint configuration. Verified against a stubbed AWS API rather than a live account.</li><li><strong>Configuration and operational safety</strong> &mdash; credentials, cross-origin policy, rate limits, registry location and store locations are read from the environment. A deployment refuses to start when it has no API key, permits every origin, is configured to serve placeholder models, or has no model registry.</li></ul><h4>Verification</h4><p>Every capability listed above is exercised by an automated test suite, run under continuous integration on Python 3.11, 3.12 and 3.13. The same pipeline runs static analysis, type checking, dependency auditing, a scan for credentials committed to source, a packaging check that installs the built distribution into a clean environment and runs its console entry points, and a container build. Test counts and coverage figures for a given release are recorded in that release's notes.</p><h4>Scope and limitations</h4><ul><li>No worked end-to-end example is included; the components are tested individually rather than demonstrated together on a single dataset.</li><li>The deployment layer is verified against the AWS API contract, not against a live account, so identity policy, service quotas and container behaviour are out of scope.</li><li>Distributed training, the security and compliance modules, and the Kubernetes and Terraform assets are scaffolding and are not exercised by continuous integration.</li><li>Deployment adapters for other cloud providers were removed rather than retained as stubs, on the grounds that an adapter which reports success without performing a deployment is worse than none.</li></ul><p>Released under the MIT licence. Not published to a package index; installable from the tagged source.</p>",
   "creators": [
     {
       "name": "Ribeiro, Diogo",
       "affiliation": "ESMAD - Instituto Politécnico do Porto",
-      "orcid": "0009-0001-2022-7072",
-      "type": "ProjectLeader"
+      "orcid": "0009-0001-2022-7072"
     }
   ],
   "contributors": [
     {
       "name": "Ribeiro, Diogo",
+      "type": "ContactPerson",
       "affiliation": "ESMAD - Instituto Politécnico do Porto",
-      "orcid": "0009-0001-2022-7072",
-      "type": "ContactPerson"
+      "orcid": "0009-0001-2022-7072"
     }
   ],
-  "access_right": "open",
-  "license": "mit",
   "keywords": [
-    "machine-learning",
-    "mlops",
-    "data-science",
-    "artificial-intelligence",
-    "enterprise",
-    "pipeline",
-    "automation",
-    "kubernetes",
-    "cloud",
-    "monitoring"
-  ],
-  "language": "eng",
-  "related_identifiers": [
-    {
-      "identifier": "https://github.com/diogoribeiro7/enterprise-ml-platform",
-      "relation": "isSupplementTo",
-      "resource_type": "software"
-    }
+    "machine learning operations",
+    "MLOps",
+    "feature store",
+    "point-in-time correctness",
+    "model registry",
+    "model deployment",
+    "model serving",
+    "pipeline orchestration",
+    "reproducibility",
+    "research software",
+    "reference implementation",
+    "MLflow",
+    "Amazon SageMaker",
+    "FastAPI",
+    "Python"
   ],
   "references": [
-    "Ribeiro, Diogo. Enterprise ML Platform. GitHub repository. https://github.com/diogoribeiro7/enterprise-ml-platform"
+    "Chen, A., Chow, A., Davidson, A., et al. (2020). Developments in MLflow: A System to Accelerate the Machine Learning Lifecycle. Proceedings of the Fourth International Workshop on Data Management for End-to-End Machine Learning. https://doi.org/10.1145/3399579.3399867",
+    "Pedregosa, F., Varoquaux, G., Gramfort, A., et al. (2011). Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research, 12, 2825-2830.",
+    "Raasveldt, M., & Mühleisen, H. (2019). DuckDB: An Embeddable Analytical Database. Proceedings of the 2019 International Conference on Management of Data, 1981-1984. https://doi.org/10.1145/3299869.3320212",
+    "Sculley, D., Holt, G., Golovin, D., et al. (2015). Hidden Technical Debt in Machine Learning Systems. Advances in Neural Information Processing Systems, 28, 2503-2511.",
+    "Apache Software Foundation. Apache Parquet: a columnar storage format for analytics workloads. https://parquet.apache.org",
+    "Ramírez, S. FastAPI: a web framework for building APIs with Python type hints. https://fastapi.tiangolo.com"
   ],
-  "notes": "Source code archive for the Enterprise ML Platform Python package and its examples, tests, deployment manifests, monitoring configuration, and infrastructure templates."
+  "notes": "Software archive of a tagged release. The repository README states, for each capability, whether it is implemented and covered by tests, thinly tested, scaffolding, or removed; the description above follows that statement rather than the project's original prospectus."
 }

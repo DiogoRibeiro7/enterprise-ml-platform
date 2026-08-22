@@ -32,7 +32,8 @@ worse than one that admits the gap.
 | Distributed training (Ray, Dask, Spark) | Interfaces only, no scale testing | [services/distributed/](src/enterprise_ml_platform/services/distributed/) |
 | Security and compliance (RBAC, GDPR, HIPAA, PII) | Scaffolding, not an audited implementation | [security/](src/enterprise_ml_platform/security/) |
 | Kubernetes manifests, Terraform modules, Grafana dashboards | Present, never applied by CI | [kubernetes/](kubernetes/), [terraform/](terraform/), [monitoring/](monitoring/) |
-| Domain examples (fraud, NLP, vision, time series) | Thin wrappers, illustrative only | [examples/](examples/) |
+| Worked end-to-end example — one dataset through features, point-in-time training, registry, promotion, serving and rollback | **Implemented, tested** | [examples/fraud_detection/end_to_end.py](examples/fraud_detection/end_to_end.py) |
+| Other domain examples (NLP, vision, time series) | Thin wrappers, illustrative only | [examples/](examples/) |
 | Deployment to GCP or Azure | **Removed.** They logged and returned a plausible URL without calling anything | — |
 | Model export to ONNX and friends | **Not implemented.** Raises rather than returning a fake path | [model_exporter.py](src/enterprise_ml_platform/services/model_registry/export/model_exporter.py) |
 
@@ -69,6 +70,30 @@ the label it is paired with. Verified in
 `models:/{name}@champion`. Moving the alias changes which model answers, with
 no redeploy and no code change, and rollback moves it back. Verified in
 [test_mlflow_registry.py](tests/services/model_registry/test_mlflow_registry.py).
+
+Both are demonstrated together, on one dataset, by the worked example:
+
+```bash
+python -m examples.fraud_detection.end_to_end
+```
+
+```text
+3. assemble the training set as of each decision
+    600 rows x 3 features
+    600 of them would carry a future value under a naive join:
+    customer C0011, decision 2024-04-04
+      txn_count_30d as of that day : 12
+      txn_count_30d today          : 24  <- the future
+
+7. promote the challenger, without redeploying anything
+    same endpoint, same request -> version 2
+
+8. roll back
+    same endpoint, same request -> version 1
+```
+
+It needs nothing external: Parquet on disk, MLflow on SQLite, the API
+in-process.
 
 ## Quickstart
 

@@ -96,7 +96,7 @@ async def _instrumented_predict(
     error rate.
 
     Returns:
-        The predictions and end-to-end inference latency in milliseconds.
+        The predictions and model-call latency in milliseconds.
     """
     started = time.perf_counter()
     try:

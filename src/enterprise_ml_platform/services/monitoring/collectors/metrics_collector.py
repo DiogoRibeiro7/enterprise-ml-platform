@@ -79,7 +79,7 @@ class MetricsCollector:
 
         Args:
             model: Stable model name.
-            latency: End-to-end inference latency in seconds.
+            latency: Model inference latency in seconds.
             version: Immutable registry version, or ``unknown`` for legacy
                 callers that do not expose one yet.
             item_count: Number of rows scored by the request.

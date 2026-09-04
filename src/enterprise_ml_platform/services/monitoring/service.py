@@ -32,6 +32,8 @@ class PredictionEvent:
     actual: float | None = None
     features: dict[str, Any] | None = None
     confidence: float | None = None
+    model_version: str = "unknown"
+    item_count: int = 1
 
 
 class MonitoringService:
@@ -66,7 +68,12 @@ class MonitoringService:
     async def handle_event(self, event: PredictionEvent) -> None:
         """Process a prediction event and update monitoring state."""
         logger.debug("handle_event", model=event.model_name)
-        self.metrics.record_prediction(event.model_name, event.latency)
+        self.metrics.record_prediction(
+            event.model_name,
+            event.latency,
+            version=event.model_version,
+            item_count=event.item_count,
+        )
 
         metric_values: dict[str, float] = {}
 

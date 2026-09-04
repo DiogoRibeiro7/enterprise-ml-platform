@@ -15,10 +15,12 @@ from collections.abc import Sequence
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 
+from ...services.monitoring.collectors import MetricsCollector
 from ..config import APISettings
 from ..dependencies import (
     LoadedModel,
     ModelRegistry,
+    get_metrics,
     get_registry,
     get_settings,
 )
@@ -82,19 +84,63 @@ async def _predict(loaded: LoadedModel, rows: Sequence[Sequence[float]]) -> list
     return np.asarray(raw).astype(float).ravel().tolist()
 
 
+async def _instrumented_predict(
+    loaded: LoadedModel,
+    rows: Sequence[Sequence[float]],
+    metrics: MetricsCollector,
+) -> tuple[list[float], float]:
+    """Score rows and record version-aware success or failure telemetry.
+
+    Validation failures are client errors and are rejected before this
+    function. Only calls that reach the model contribute to its operational
+    error rate.
+
+    Returns:
+        The predictions and end-to-end inference latency in milliseconds.
+    """
+    started = time.perf_counter()
+    try:
+        predictions = await _predict(loaded, rows)
+    except asyncio.CancelledError:
+        latency_seconds = time.perf_counter() - started
+        metrics.record_prediction_error(
+            loaded.name,
+            latency_seconds,
+            version=loaded.version,
+        )
+        raise
+    except HTTPException:
+        latency_seconds = time.perf_counter() - started
+        metrics.record_prediction_error(
+            loaded.name,
+            latency_seconds,
+            version=loaded.version,
+        )
+        raise
+
+    latency_seconds = time.perf_counter() - started
+    metrics.record_prediction(
+        loaded.name,
+        latency_seconds,
+        version=loaded.version,
+        item_count=len(rows),
+    )
+    return predictions, latency_seconds * 1000
+
+
 @router.post("/predict", response_model=PredictionResponse)
 async def predict(
     request: PredictionRequest,
     registry: ModelRegistry = Depends(get_registry),
-    settings: APISettings = Depends(get_settings),
+    metrics: MetricsCollector = Depends(get_metrics),
 ) -> PredictionResponse:
     """Return a prediction for a single feature vector."""
     loaded = _resolve(registry, request.model_name, request.model_version)
     _validate_shape(loaded, [request.features])
 
-    started = time.perf_counter()
-    predictions = await _predict(loaded, [request.features])
-    latency_ms = (time.perf_counter() - started) * 1000
+    predictions, latency_ms = await _instrumented_predict(
+        loaded, [request.features], metrics
+    )
 
     return PredictionResponse(
         predictions=predictions,
@@ -109,6 +155,7 @@ async def predict_batch(
     request: BatchPredictionRequest,
     registry: ModelRegistry = Depends(get_registry),
     settings: APISettings = Depends(get_settings),
+    metrics: MetricsCollector = Depends(get_metrics),
 ) -> BatchPredictionResponse:
     """Return predictions for a batch of feature vectors."""
     loaded = _resolve(registry, request.model_name, request.model_version)
@@ -122,9 +169,9 @@ async def predict_batch(
         )
     _validate_shape(loaded, request.items)
 
-    started = time.perf_counter()
-    predictions = await _predict(loaded, request.items)
-    latency_ms = (time.perf_counter() - started) * 1000
+    predictions, latency_ms = await _instrumented_predict(
+        loaded, request.items, metrics
+    )
 
     return BatchPredictionResponse(
         predictions=predictions,

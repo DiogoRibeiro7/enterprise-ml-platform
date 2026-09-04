@@ -238,9 +238,11 @@ def build_offline_store(
     return InMemoryOfflineStore(metrics=metrics)
 
 
-def build_feature_store(settings: APISettings) -> FeatureStoreService:
+def build_feature_store(
+    settings: APISettings, metrics: MetricsCollector | None = None
+) -> FeatureStoreService:
     """Build the feature store service described by ``settings``."""
-    metrics = MetricsCollector()
+    metrics = metrics or get_metrics()
     online = OnlineFeatureStore(
         Redis.from_url(settings.feature_store_redis_url), metrics=metrics
     )
@@ -258,6 +260,7 @@ def build_feature_store(settings: APISettings) -> FeatureStoreService:
 _registry: ModelRegistry | None = None
 _feature_store: FeatureStoreService | None = None
 _settings: APISettings | None = None
+_metrics: MetricsCollector | None = None
 
 
 def configure(settings: APISettings) -> None:
@@ -288,11 +291,24 @@ def get_registry() -> ModelRegistry:
     return _registry
 
 
+def get_metrics() -> MetricsCollector:
+    """Return the process-wide metrics collector used by API services.
+
+    Prometheus collectors register metric names in a registry. Reusing one
+    instance prevents duplicate-timeseries errors when the application factory
+    is called more than once, as it is in tests and embedded deployments.
+    """
+    global _metrics
+    if _metrics is None:
+        _metrics = MetricsCollector()
+    return _metrics
+
+
 def get_feature_store() -> FeatureStoreService:
     """Return the shared :class:`FeatureStoreService`."""
     global _feature_store
     if _feature_store is None:
-        _feature_store = build_feature_store(get_settings())
+        _feature_store = build_feature_store(get_settings(), get_metrics())
     return _feature_store
 
 

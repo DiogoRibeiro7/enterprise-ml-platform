@@ -25,6 +25,7 @@ worse than one that admits the gap.
 | Model registry — MLflow versions, `champion`/`challenger` aliases, promotion and rollback | **Implemented, tested** | [model_registry/mlflow_registry.py](src/enterprise_ml_platform/services/model_registry/mlflow_registry.py) |
 | Experiment tracking — scoped runs, logged params, metrics and model artifacts | **Implemented, tested** | [model_training/service.py](src/enterprise_ml_platform/services/model_training/service.py) |
 | Serving — FastAPI, inference off the event loop, schema validation, batch limits, version in every response | **Implemented, tested** | [api/routers/predictions.py](src/enterprise_ml_platform/api/routers/predictions.py) |
+| Serving observability — request outcomes, scored items and latency by model version, Prometheus export and Grafana queries | **Implemented, tested** | [metrics_collector.py](src/enterprise_ml_platform/services/monitoring/collectors/metrics_collector.py), [model_monitoring.json](monitoring/grafana/dashboards/model_monitoring.json) |
 | API configuration — API key, CORS and limits from the environment, with deployment guardrails | **Implemented, tested** | [api/config.py](src/enterprise_ml_platform/api/config.py) |
 | SageMaker deployment — model, endpoint config and endpoint lifecycle, traffic weights, rollback to a previous config | **Implemented, tested against a stubbed AWS API** | [deployers/aws_deployer.py](src/enterprise_ml_platform/services/model_deployment/deployers/aws_deployer.py) |
 | Feature engineering — numerical, categorical and temporal transformers, with identifiers carried through untransformed | **Implemented, partially tested** | [feature_engineering/](src/enterprise_ml_platform/services/feature_engineering/) |
@@ -94,6 +95,31 @@ python -m examples.fraud_detection.end_to_end
 
 It needs nothing external: Parquet on disk, MLflow on SQLite, the API
 in-process.
+
+## Serving telemetry
+
+Every call that reaches a model records bounded Prometheus labels for the
+model name, immutable version and outcome. Successful batch requests record
+both one request and the number of rows scored, so operational load is not
+hidden by batching.
+
+| Metric | Meaning |
+| --- | --- |
+| `ml_prediction_requests_total{model,version,outcome}` | Inference calls, split into `success` and `error` |
+| `ml_predictions_total{model,version}` | Rows successfully scored |
+| `ml_prediction_latency_seconds{model,version,outcome}` | Model inference latency histogram |
+
+The API exports these at `GET /api/v1/metrics`. The committed Prometheus
+configuration scrapes that exact route, and the Grafana dashboard computes
+per-version throughput, error rate and p95 successful latency. Validation
+failures are client errors and do not count against a model version; failures
+raised by the model do.
+
+With the authenticated quickstart below:
+
+```bash
+curl localhost:8000/api/v1/metrics -H "X-API-Key: local-dev-key"
+```
 
 ## Quickstart
 

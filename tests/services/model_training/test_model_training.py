@@ -106,6 +106,28 @@ def test_training_logs_into_the_configured_store(
     assert (tmp_path / "mlflow.db").exists()
 
 
+def test_drift_reference_failure_does_not_abort_tracking(
+    tmp_path: pathlib.Path, restore_mlflow_state, monkeypatch
+) -> None:
+    uri = f"sqlite:///{(tmp_path / 'mlflow.db').as_posix()}"
+    X, y = make_classification(n_samples=50, n_features=4, random_state=42)
+    service = ModelTrainingService(
+        tracking_uri=uri,
+        experiment_name="best-effort-drift-reference",
+        artifact_location=(tmp_path / "artifacts").as_uri(),
+    )
+
+    def fail_reference(*args, **kwargs):
+        raise ValueError("reference cannot be summarized")
+
+    monkeypatch.setattr(DriftReference, "from_array", fail_reference)
+
+    asyncio.run(service.train(X, y, _config()))
+
+    assert service.last_run_id
+    assert service.last_model_uri
+
+
 def test_a_tracked_run_can_be_promoted_through_the_registry(
     tmp_path: pathlib.Path, restore_mlflow_state
 ) -> None:

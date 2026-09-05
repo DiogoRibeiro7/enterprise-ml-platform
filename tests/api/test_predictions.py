@@ -20,6 +20,7 @@ from prometheus_client import CollectorRegistry, generate_latest
 from enterprise_ml_platform.api.config import APISettings
 from enterprise_ml_platform.api.dependencies import (
     LoadedModel,
+    ModelRegistry,
     get_drift_monitor,
     get_metrics,
     get_registry,
@@ -196,6 +197,12 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         def predict(self, data: np.ndarray) -> list[str]:
             return ["not-a-number"] * len(data)
 
+    class NonFiniteOutputModel:
+        n_features_in_ = 4
+
+        def predict(self, data: np.ndarray) -> list[float]:
+            return [float("nan")] * len(data)
+
     registry._models["telemetry-success"] = LoadedModel(
         name="telemetry-success",
         version="42",
@@ -214,6 +221,13 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         name="telemetry-invalid-output",
         version="44",
         model=InvalidOutputModel(),
+        source="registry",
+        n_features=4,
+    )
+    registry._models["telemetry-non-finite-output"] = LoadedModel(
+        name="telemetry-non-finite-output",
+        version="45",
+        model=NonFiniteOutputModel(),
         source="registry",
         n_features=4,
     )
@@ -242,6 +256,11 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         headers=HEADERS,
         json={"model_name": "telemetry-invalid-output", "features": IRIS_ROW},
     )
+    non_finite_output = client.post(
+        "/api/v1/predict",
+        headers=HEADERS,
+        json={"model_name": "telemetry-non-finite-output", "features": IRIS_ROW},
+    )
     exported = client.get("/api/v1/metrics", headers=HEADERS)
 
     assert single.status_code == 200
@@ -250,6 +269,8 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
     assert failed.json()["detail"] == "Inference failed: model runtime failed"
     assert invalid_output.status_code == 500
     assert "cannot be converted" in invalid_output.json()["detail"]
+    assert non_finite_output.status_code == 500
+    assert non_finite_output.json()["detail"] == "Model returned non-finite predictions"
     assert exported.status_code == 200
     metrics = exported.text
     assert (
@@ -266,6 +287,10 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
     assert (
         'ml_prediction_requests_total{model="telemetry-invalid-output",'
         'outcome="error",version="44"} 1.0'
+    ) in metrics
+    assert (
+        'ml_prediction_requests_total{model="telemetry-non-finite-output",'
+        'outcome="error",version="45"} 1.0'
     ) in metrics
 
 
@@ -413,6 +438,41 @@ async def test_inference_runs_off_the_event_loop() -> None:
 
     assert observed["thread"] != loop_thread, "inference ran on the event loop thread"
     assert ticks > 1, "the event loop was blocked while inference ran"
+
+
+async def test_drift_scoring_runs_off_the_event_loop() -> None:
+    loop_thread = threading.current_thread().name
+    observed: dict[str, str] = {}
+
+    class ConstantModel:
+        def predict(self, data: np.ndarray) -> list[float]:
+            return [0.0] * len(data)
+
+    class RecordingDriftMonitor:
+        def observe(self, *args: object, **kwargs: object) -> None:
+            observed["thread"] = threading.current_thread().name
+
+    from enterprise_ml_platform.api.routers.predictions import predict
+    from enterprise_ml_platform.api.schemas import PredictionRequest
+
+    loaded = LoadedModel(
+        name="fraud",
+        version="7",
+        model=ConstantModel(),
+        source="registry",
+        n_features=4,
+    )
+    registry = ModelRegistry()
+    registry._models["fraud"] = loaded
+
+    await predict(
+        PredictionRequest(model_name="fraud", features=IRIS_ROW),
+        registry,
+        MetricsCollector(CollectorRegistry()),
+        RecordingDriftMonitor(),  # type: ignore[arg-type]
+    )
+
+    assert observed["thread"] != loop_thread, "drift scoring ran on the event loop"
 
 
 def test_concurrent_requests_are_not_serialised_by_one_slow_model() -> None:

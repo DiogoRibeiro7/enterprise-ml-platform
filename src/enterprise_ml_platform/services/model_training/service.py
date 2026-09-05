@@ -195,9 +195,12 @@ class ModelTrainingService:
         with mlflow.start_run(run_name=config.algorithm) as run:
             mlflow.log_params({k: str(v) for k, v in params.items()})
             mlflow.log_metrics(metrics)
-            feature_names = getattr(model, "feature_names_in_", None)
-            drift_reference = DriftReference.from_array(X, feature_names)
-            mlflow.log_dict(drift_reference.to_dict(), DRIFT_REFERENCE_ARTIFACT)
+            try:
+                feature_names = getattr(model, "feature_names_in_", None)
+                drift_reference = DriftReference.from_array(X, feature_names)
+                mlflow.log_dict(drift_reference.to_dict(), DRIFT_REFERENCE_ARTIFACT)
+            except Exception as exc:  # noqa: BLE001 - monitoring is best effort
+                self.logger.warning("drift_reference_not_logged", error=str(exc))
             if explanations:
                 for key, value in explanations.items():
                     mlflow.log_metric(

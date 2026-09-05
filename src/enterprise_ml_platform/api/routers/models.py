@@ -72,6 +72,8 @@ async def load_model(
     assert loaded is not None
     if loaded.drift_reference is not None:
         drift_monitor.register(loaded.name, loaded.version, loaded.drift_reference)
+    else:
+        drift_monitor.remove(loaded.name, loaded.version)
     if previous is not None and previous.version != loaded.version:
         drift_monitor.remove(previous.name, previous.version)
     return info

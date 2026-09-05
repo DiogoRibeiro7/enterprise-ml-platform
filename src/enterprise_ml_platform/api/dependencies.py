@@ -288,15 +288,18 @@ def configure(settings: APISettings) -> None:
     from its own settings rather than from the ambient environment.
     """
     global _drift_monitor, _registry, _feature_store, _settings
-    _settings = settings
-    _registry = build_model_registry(settings)
-    _feature_store = None  # rebuilt lazily; it opens a Redis connection
-    _drift_monitor = ServingDriftMonitor(
-        get_metrics(),
-        window_size=settings.drift_window_size,
-        min_samples=settings.drift_min_samples,
-        threshold=settings.drift_threshold,
-    )
+    with _drift_monitor_lock:
+        if _drift_monitor is not None:
+            _drift_monitor.clear()
+        _settings = settings
+        _registry = build_model_registry(settings)
+        _feature_store = None  # rebuilt lazily; it opens a Redis connection
+        _drift_monitor = ServingDriftMonitor(
+            get_metrics(),
+            window_size=settings.drift_window_size,
+            min_samples=settings.drift_min_samples,
+            threshold=settings.drift_threshold,
+        )
 
 
 def get_settings() -> APISettings:

@@ -14,4 +14,4 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: Input drift detected for {{ $labels.model }} v{{ $labels.version }}
+          summary: Input drift detected for {{ $labels.model }} v{{ $labels.version }} on feature {{ $labels.feature }}

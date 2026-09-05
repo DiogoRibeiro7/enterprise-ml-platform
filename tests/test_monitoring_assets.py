@@ -17,6 +17,10 @@ PROMETHEUS_RULES = (
     REPOSITORY_ROOT / "monitoring" / "prometheus" / "rules" / "alert.rules.yml"
 )
 MONITORING_DOCKERFILE = REPOSITORY_ROOT / "docker" / "Dockerfile.monitoring"
+DOCKER_COMPOSE = REPOSITORY_ROOT / "docker" / "docker-compose.yml"
+KUBERNETES_PROMETHEUS = (
+    REPOSITORY_ROOT / "kubernetes" / "monitoring" / "prometheus.yaml"
+)
 
 
 def _dashboard_queries(document: dict[str, Any]) -> list[str]:
@@ -76,6 +80,7 @@ def test_prometheus_alerts_use_exported_version_aware_metrics() -> None:
     assert "model, version" in rules["HighErrorRate"]["expr"]
     assert rules["ModelFeatureDrift"]["expr"] == "ml_feature_drift_detected == 1"
     assert rules["ModelFeatureDrift"]["for"] == "5m"
+    assert "$labels.feature" in rules["ModelFeatureDrift"]["annotations"]["summary"]
 
 
 def test_monitoring_image_packages_the_prometheus_config_and_rules() -> None:
@@ -85,3 +90,25 @@ def test_monitoring_image_packages_the_prometheus_config_and_rules() -> None:
     assert "WORKDIR /etc/prometheus" in dockerfile
     assert "monitoring/prometheus/prometheus.yml" in dockerfile
     assert "monitoring/prometheus/rules/" in dockerfile
+
+
+def test_prometheus_history_uses_persistent_storage() -> None:
+    compose: dict[str, Any] = yaml.safe_load(DOCKER_COMPOSE.read_text(encoding="utf-8"))
+    documents = list(
+        yaml.safe_load_all(KUBERNETES_PROMETHEUS.read_text(encoding="utf-8"))
+    )
+
+    assert "prometheus_data" in compose["volumes"]
+    assert "prometheus_data:/prometheus" in compose["services"]["monitoring"]["volumes"]
+
+    claim = next(item for item in documents if item["kind"] == "PersistentVolumeClaim")
+    deployment = next(item for item in documents if item["kind"] == "Deployment")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    container = pod_spec["containers"][0]
+
+    assert claim["metadata"]["name"] == "prometheus-data"
+    assert {"name": "data", "mountPath": "/prometheus"} in container["volumeMounts"]
+    assert {
+        "name": "data",
+        "persistentVolumeClaim": {"claimName": "prometheus-data"},
+    } in pod_spec["volumes"]

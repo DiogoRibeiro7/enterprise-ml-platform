@@ -6,11 +6,16 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, cast
 
+from prometheus_client import CollectorRegistry, generate_latest
 from pytest import MonkeyPatch
 
 from enterprise_ml_platform.api import dependencies
 from enterprise_ml_platform.services.model_registry import ModelVersionInfo
-from enterprise_ml_platform.services.monitoring.serving_drift import DriftReference
+from enterprise_ml_platform.services.monitoring.collectors import MetricsCollector
+from enterprise_ml_platform.services.monitoring.serving_drift import (
+    DriftReference,
+    ServingDriftMonitor,
+)
 
 
 def test_metrics_collector_is_initialized_once_under_concurrency(
@@ -91,3 +96,18 @@ def test_drift_monitor_is_initialized_once_under_concurrency(
 
     assert len(constructed) == 1
     assert len({id(instance) for instance in instances}) == 1
+
+
+def test_reconfiguring_clears_previous_drift_metrics(monkeypatch: MonkeyPatch) -> None:
+    registry = CollectorRegistry()
+    metrics = MetricsCollector(registry)
+    previous = ServingDriftMonitor(metrics, window_size=4, min_samples=2)
+    reference = DriftReference.from_array([[0.0], [1.0]], ["amount"])
+    previous.observe("fraud", "7", [[10.0], [11.0]], reference)
+    monkeypatch.setattr(dependencies, "_drift_monitor", previous)
+    monkeypatch.setattr(dependencies, "get_metrics", lambda: metrics)
+
+    dependencies.configure(dependencies.APISettings())
+
+    assert previous.status("fraud", "7").state == "unavailable"
+    assert 'model="fraud"' not in generate_latest(registry).decode("utf-8")

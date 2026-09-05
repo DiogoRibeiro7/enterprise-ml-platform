@@ -346,6 +346,15 @@ class ServingDriftMonitor:
                     model_name, model_version, state.reference.feature_names
                 )
 
+    def clear(self) -> None:
+        """Discard every window and metric child owned by this monitor."""
+        with self._lock:
+            for (model_name, model_version), state in tuple(self._states.items()):
+                self.metrics.clear_drift(
+                    model_name, model_version, state.reference.feature_names
+                )
+            self._states.clear()
+
     def _report(
         self,
         model_name: str,

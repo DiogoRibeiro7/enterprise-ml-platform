@@ -111,6 +111,21 @@ def test_unload_before_the_window_is_ready_is_safe() -> None:
     assert 'model="fraud"' not in generate_latest(registry).decode("utf-8")
 
 
+def test_clear_removes_every_window_and_metric_child() -> None:
+    registry = CollectorRegistry()
+    monitor = ServingDriftMonitor(
+        MetricsCollector(registry), window_size=10, min_samples=5
+    )
+    monitor.observe("fraud", "7", np.full((10, 2), 100.0), _reference())
+    monitor.observe("churn", "3", np.full((10, 2), 100.0), _reference())
+
+    monitor.clear()
+
+    assert monitor.status("fraud", "7").state == "unavailable"
+    assert monitor.status("churn", "3").state == "unavailable"
+    assert "ml_feature_drift_score{" not in generate_latest(registry).decode("utf-8")
+
+
 def test_empty_observation_is_rejected() -> None:
     monitor = ServingDriftMonitor(MetricsCollector(CollectorRegistry()))
 

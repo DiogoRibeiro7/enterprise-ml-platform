@@ -84,12 +84,18 @@ async def _predict(loaded: LoadedModel, rows: Sequence[Sequence[float]]) -> list
     except Exception as exc:  # noqa: BLE001 - model failures are server errors
         raise HTTPException(status_code=500, detail=f"Inference failed: {exc}") from exc
     try:
-        return np.asarray(raw).astype(float).ravel().tolist()
+        predictions = np.asarray(raw).astype(float).ravel()
     except (TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=500,
             detail="Model returned predictions that cannot be converted to numbers",
         ) from exc
+    if not np.isfinite(predictions).all():
+        raise HTTPException(
+            status_code=500,
+            detail="Model returned non-finite predictions",
+        )
+    return predictions.tolist()
 
 
 async def _instrumented_predict(
@@ -146,7 +152,8 @@ async def predict(
     """Return a prediction for a single feature vector."""
     loaded = _resolve(registry, request.model_name, request.model_version)
     _validate_shape(loaded, [request.features])
-    drift_monitor.observe(
+    await asyncio.to_thread(
+        drift_monitor.observe,
         loaded.name,
         loaded.version,
         [request.features],
@@ -184,7 +191,8 @@ async def predict_batch(
             ),
         )
     _validate_shape(loaded, request.items)
-    drift_monitor.observe(
+    await asyncio.to_thread(
+        drift_monitor.observe,
         loaded.name,
         loaded.version,
         request.items,

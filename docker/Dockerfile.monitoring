@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM prom/prometheus:v2.47.0
+FROM prom/prometheus:v3.14.0
 
 WORKDIR /etc/prometheus
 

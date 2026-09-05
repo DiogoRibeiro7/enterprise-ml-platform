@@ -26,13 +26,14 @@ worse than one that admits the gap.
 | Experiment tracking — scoped runs, logged params, metrics and model artifacts | **Implemented, tested** | [model_training/service.py](src/enterprise_ml_platform/services/model_training/service.py) |
 | Serving — FastAPI, inference off the event loop, schema validation, batch limits, version in every response | **Implemented, tested** | [api/routers/predictions.py](src/enterprise_ml_platform/api/routers/predictions.py) |
 | Serving observability — request outcomes, scored items and latency by model version, Prometheus export and Grafana queries | **Implemented, tested** | [metrics_collector.py](src/enterprise_ml_platform/services/monitoring/collectors/metrics_collector.py), [model_monitoring.json](monitoring/grafana/dashboards/model_monitoring.json) |
+| Local observability stack — API, Redis, MLflow, Prometheus and pre-provisioned Grafana dashboards in Compose | **Implemented, configuration-tested** | [docker-compose.yml](docker/docker-compose.yml), [monitoring/](monitoring/) |
 | API configuration — API key, CORS and limits from the environment, with deployment guardrails | **Implemented, tested** | [api/config.py](src/enterprise_ml_platform/api/config.py) |
 | SageMaker deployment — model, endpoint config and endpoint lifecycle, traffic weights, rollback to a previous config | **Implemented, tested against a stubbed AWS API** | [deployers/aws_deployer.py](src/enterprise_ml_platform/services/model_deployment/deployers/aws_deployer.py) |
 | Feature engineering — numerical, categorical and temporal transformers, with identifiers carried through untransformed | **Implemented, partially tested** | [feature_engineering/](src/enterprise_ml_platform/services/feature_engineering/) |
 | Drift detection, A/B testing, streaming, resource management | Implemented, thinly tested | [services/](src/enterprise_ml_platform/services/) |
 | Distributed training (Ray, Dask, Spark) | Interfaces only, no scale testing | [services/distributed/](src/enterprise_ml_platform/services/distributed/) |
 | Security and compliance (RBAC, GDPR, HIPAA, PII) | Scaffolding, not an audited implementation | [security/](src/enterprise_ml_platform/security/) |
-| Kubernetes manifests, Terraform modules, Grafana dashboards | Present, never applied by CI | [kubernetes/](kubernetes/), [terraform/](terraform/), [monitoring/](monitoring/) |
+| Kubernetes manifests, Terraform modules | Present, never applied by CI | [kubernetes/](kubernetes/), [terraform/](terraform/) |
 | Worked end-to-end example — one dataset through features, point-in-time training, registry, promotion, serving and rollback | **Implemented, tested** | [examples/fraud_detection/end_to_end.py](examples/fraud_detection/end_to_end.py) |
 | Other domain examples (NLP, vision, time series) | Thin wrappers, illustrative only | [examples/](examples/) |
 | Deployment to GCP or Azure | **Removed.** They logged and returned a plausible URL without calling anything | — |
@@ -173,6 +174,40 @@ curl -X POST localhost:8000/api/v1/predict \
 fitted at load time and is gone on restart. Point `MLP_MODEL_REGISTRY_URI` at
 an MLflow registry and the same endpoint serves the promoted champion instead,
 reporting its real version.
+
+### Local observability stack
+
+With Docker and Compose v2 installed, start the development API and its
+stateful services with one command:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+| Service | Local URL | Purpose |
+| --- | --- | --- |
+| API | <http://localhost:8000> | Demo serving and `/api/v1/metrics` |
+| MLflow | <http://localhost:5000> | Tracking UI and persistent local store |
+| Prometheus | <http://localhost:9090> | Scraping, rules and retained time series |
+| Grafana | <http://localhost:3000> | Provisioned model and platform-health dashboards |
+
+Point a host-side training process at the containerized tracking service with
+`export MLFLOW_TRACKING_URI=http://localhost:5000`.
+
+Generate traffic for the model dashboard:
+
+```bash
+curl -X POST localhost:8000/api/v1/models/iris/load
+curl -X POST localhost:8000/api/v1/predict \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "iris", "features": [5.1, 3.5, 1.4, 0.2]}'
+```
+
+The stack is explicitly for local development: published ports bind only to
+`127.0.0.1`, API authentication is disabled, and Grafana grants anonymous
+viewer access. Redis, MLflow, Prometheus and Grafana each use a named volume,
+so `docker compose -f docker/docker-compose.yml down` stops the stack without
+discarding its state.
 
 ## Installation
 

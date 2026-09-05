@@ -70,6 +70,11 @@ that stops it happening again unnoticed.
   baselines. Validated serving rows feed bounded windows isolated by model and
   immutable version; the API exposes readiness and scores, Prometheus loads a
   sustained drift alert, and Grafana shows version-scoped drift state.
+- **One-command local observability.** Compose starts the API, Redis, MLflow,
+  Prometheus and Grafana on loopback-only ports. Grafana provisions the
+  Prometheus source plus model and platform-health dashboards, while named
+  volumes retain every stateful service across restarts. CI validates the
+  Compose model and builds both project-owned images.
 
 ## Next
 

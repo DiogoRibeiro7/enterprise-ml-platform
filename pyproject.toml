@@ -344,6 +344,12 @@ module = [
 # model_deployment -- is checked strictly and passes.
 ignore_errors = true
 
+# New monitoring code is held to the repository-wide strict settings even
+# while the older monitoring package is worked through incrementally.
+[[tool.mypy.overrides]]
+module = "enterprise_ml_platform.services.monitoring.serving_drift"
+ignore_errors = false
+
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"

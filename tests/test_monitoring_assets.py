@@ -34,6 +34,7 @@ def test_dashboard_queries_version_aware_serving_metrics() -> None:
     assert any("ml_prediction_requests_total" in query for query in queries)
     assert any("ml_prediction_latency_seconds_bucket" in query for query in queries)
     assert any('outcome="error"' in query for query in queries)
+    assert any(" or 0 * " in query for query in queries)
     assert all(
         "model, version" in query for query in queries if "ml_prediction" in query
     )

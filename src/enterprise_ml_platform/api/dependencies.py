@@ -261,6 +261,7 @@ _registry: ModelRegistry | None = None
 _feature_store: FeatureStoreService | None = None
 _settings: APISettings | None = None
 _metrics: MetricsCollector | None = None
+_metrics_lock = threading.Lock()
 
 
 def configure(settings: APISettings) -> None:
@@ -300,7 +301,9 @@ def get_metrics() -> MetricsCollector:
     """
     global _metrics
     if _metrics is None:
-        _metrics = MetricsCollector()
+        with _metrics_lock:
+            if _metrics is None:
+                _metrics = MetricsCollector()
     return _metrics
 
 

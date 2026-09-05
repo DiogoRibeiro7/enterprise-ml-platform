@@ -48,7 +48,7 @@
       "id": 2,
       "targets": [
         {
-          "expr": "100 * sum by (model, version) (rate(ml_prediction_requests_total{outcome=\"error\"}[5m])) / clamp_min(sum by (model, version) (rate(ml_prediction_requests_total[5m])), 1e-9)",
+          "expr": "100 * (sum by (model, version) (rate(ml_prediction_requests_total{outcome=\"error\"}[5m])) or 0 * sum by (model, version) (rate(ml_prediction_requests_total[5m]))) / clamp_min(sum by (model, version) (rate(ml_prediction_requests_total[5m])), 1e-9)",
           "legendFormat": "{{model}} v{{version}}",
           "refId": "A"
         }

@@ -81,7 +81,13 @@ async def _predict(loaded: LoadedModel, rows: Sequence[Sequence[float]]) -> list
         raw = await asyncio.to_thread(loaded.predict, array)
     except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a 400
         raise HTTPException(status_code=400, detail=f"Inference failed: {exc}") from exc
-    return np.asarray(raw).astype(float).ravel().tolist()
+    try:
+        return np.asarray(raw).astype(float).ravel().tolist()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Model returned predictions that cannot be converted to numbers",
+        ) from exc
 
 
 async def _instrumented_predict(
@@ -109,7 +115,7 @@ async def _instrumented_predict(
             version=loaded.version,
         )
         raise
-    except HTTPException:
+    except Exception:
         latency_seconds = time.perf_counter() - started
         metrics.record_prediction_error(
             loaded.name,

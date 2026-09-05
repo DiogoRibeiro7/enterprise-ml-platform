@@ -18,7 +18,11 @@ from fastapi.testclient import TestClient
 from prometheus_client import CollectorRegistry, generate_latest
 
 from enterprise_ml_platform.api.config import APISettings
-from enterprise_ml_platform.api.dependencies import LoadedModel, get_registry
+from enterprise_ml_platform.api.dependencies import (
+    LoadedModel,
+    get_metrics,
+    get_registry,
+)
 from enterprise_ml_platform.api.main import create_app
 from enterprise_ml_platform.services.monitoring.collectors import MetricsCollector
 
@@ -153,6 +157,9 @@ def test_batch_at_the_limit_is_accepted(client: TestClient) -> None:
 def test_serving_metrics_are_exported_per_model_version() -> None:
     """Successes, failures and batch items must identify the serving artifact."""
     app = create_app(APISettings(environment="development", api_key="test-key"))
+    metrics_registry = CollectorRegistry()
+    metrics_collector = MetricsCollector(metrics_registry)
+    app.dependency_overrides[get_metrics] = lambda: metrics_collector
     registry = get_registry()
 
     class ConstantModel:
@@ -167,6 +174,12 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         def predict(self, data: np.ndarray) -> list[float]:
             raise RuntimeError("model runtime failed")
 
+    class InvalidOutputModel:
+        n_features_in_ = 4
+
+        def predict(self, data: np.ndarray) -> list[str]:
+            return ["not-a-number"] * len(data)
+
     registry._models["telemetry-success"] = LoadedModel(
         name="telemetry-success",
         version="42",
@@ -178,6 +191,13 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         name="telemetry-error",
         version="43",
         model=FailingModel(),
+        source="registry",
+        n_features=4,
+    )
+    registry._models["telemetry-invalid-output"] = LoadedModel(
+        name="telemetry-invalid-output",
+        version="44",
+        model=InvalidOutputModel(),
         source="registry",
         n_features=4,
     )
@@ -201,11 +221,18 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         headers=HEADERS,
         json={"model_name": "telemetry-error", "features": IRIS_ROW},
     )
+    invalid_output = client.post(
+        "/api/v1/predict",
+        headers=HEADERS,
+        json={"model_name": "telemetry-invalid-output", "features": IRIS_ROW},
+    )
     exported = client.get("/api/v1/metrics", headers=HEADERS)
 
     assert single.status_code == 200
     assert batch.status_code == 200
     assert failed.status_code == 400
+    assert invalid_output.status_code == 500
+    assert "cannot be converted" in invalid_output.json()["detail"]
     assert exported.status_code == 200
     metrics = exported.text
     assert (
@@ -218,6 +245,10 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
     assert (
         'ml_prediction_requests_total{model="telemetry-error",outcome="error",'
         'version="43"} 1.0'
+    ) in metrics
+    assert (
+        'ml_prediction_requests_total{model="telemetry-invalid-output",'
+        'outcome="error",version="44"} 1.0'
     ) in metrics
 
 

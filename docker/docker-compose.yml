@@ -1,46 +1,88 @@
-version: '3.9'
 services:
   api:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
+    init: true
+    restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - ENV=development
-      - FEATURE_STORE_REDIS_URL=redis://redis:6379/0
+      MLP_ENVIRONMENT: development
+      MLP_API_KEY: ""
+      MLP_FEATURE_STORE_REDIS_URL: redis://redis:6379/0
     depends_on:
-      - db
-      - redis
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: mlp
-      POSTGRES_PASSWORD: mlp
-      POSTGRES_DB: mlp
-    ports:
-      - "5432:5432"
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
   redis:
     image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.2
-    ports:
-      - "5000:5000"
-    command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlruns --host 0.0.0.0
+      - "127.0.0.1:6379:6379"
     volumes:
-      - mlruns:/mlruns
-  monitoring:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.0
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --default-artifact-root
+      - /mlflow/artifacts
+      - --host
+      - 0.0.0.0
+    volumes:
+      - mlflow_data:/mlflow
+  prometheus:
     build:
       context: ..
       dockerfile: docker/Dockerfile.monitoring
+    init: true
+    restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - prometheus_data:/prometheus
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+  grafana:
+    image: grafana/grafana:13.2.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/model_monitoring.json
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/datasources/datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ../monitoring/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/platform.yml:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
 volumes:
-  mlruns:
+  grafana_data:
+  mlflow_data:
   prometheus_data:
+  redis_data:

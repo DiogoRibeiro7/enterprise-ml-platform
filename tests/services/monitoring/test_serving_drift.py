@@ -58,17 +58,13 @@ def test_windows_and_scores_are_isolated_by_model_version() -> None:
     assert stable.drifted_features == ()
     assert drifted.state == "ready"
     assert drifted.drifted_features == ("amount", "velocity")
-    assert monitor.status("fraud", "1").scores != monitor.status(
-        "fraud", "2"
-    ).scores
+    assert monitor.status("fraud", "1").scores != monitor.status("fraud", "2").scores
 
 
 def test_window_is_bounded_and_metrics_identify_the_served_artifact() -> None:
     registry = CollectorRegistry()
     metrics = MetricsCollector(registry)
-    monitor = ServingDriftMonitor(
-        metrics, window_size=10, min_samples=5, threshold=0.2
-    )
+    monitor = ServingDriftMonitor(metrics, window_size=10, min_samples=5, threshold=0.2)
     reference = _reference()
 
     report = monitor.observe("fraud", "7", np.full((25, 2), 100.0), reference)

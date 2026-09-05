@@ -53,9 +53,7 @@ def test_alias_is_resolved_once_before_loading_versioned_artifacts() -> None:
             calls.append(("load", version))
             return object()
 
-        def load_drift_reference(
-            self, resolved: ModelVersionInfo
-        ) -> DriftReference:
+        def load_drift_reference(self, resolved: ModelVersionInfo) -> DriftReference:
             calls.append(("reference", resolved.version))
             return reference
 

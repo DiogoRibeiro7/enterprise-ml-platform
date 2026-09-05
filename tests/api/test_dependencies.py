@@ -98,7 +98,7 @@ def test_drift_monitor_is_initialized_once_under_concurrency(
     assert len({id(instance) for instance in instances}) == 1
 
 
-def test_reconfiguring_clears_previous_drift_metrics(monkeypatch: MonkeyPatch) -> None:
+def test_reconfiguring_retires_previous_drift_monitor(monkeypatch: MonkeyPatch) -> None:
     registry = CollectorRegistry()
     metrics = MetricsCollector(registry)
     previous = ServingDriftMonitor(metrics, window_size=4, min_samples=2)
@@ -108,6 +108,7 @@ def test_reconfiguring_clears_previous_drift_metrics(monkeypatch: MonkeyPatch) -
     monkeypatch.setattr(dependencies, "get_metrics", lambda: metrics)
 
     dependencies.configure(dependencies.APISettings())
+    previous.observe("fraud", "7", [[12.0]], reference)
 
     assert previous.status("fraud", "7").state == "unavailable"
     assert 'model="fraud"' not in generate_latest(registry).decode("utf-8")

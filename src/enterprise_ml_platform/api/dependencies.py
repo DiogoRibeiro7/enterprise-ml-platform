@@ -290,7 +290,7 @@ def configure(settings: APISettings) -> None:
     global _drift_monitor, _registry, _feature_store, _settings
     with _drift_monitor_lock:
         if _drift_monitor is not None:
-            _drift_monitor.clear()
+            _drift_monitor.close()
         _settings = settings
         _registry = build_model_registry(settings)
         _feature_store = None  # rebuilt lazily; it opens a Redis connection

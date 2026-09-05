@@ -243,6 +243,7 @@ class ServingDriftMonitor:
         self.min_samples = min_samples
         self.threshold = threshold
         self._states: dict[tuple[str, str], _VersionState] = {}
+        self._closed = False
         self._lock = threading.RLock()
 
     def register(
@@ -251,6 +252,8 @@ class ServingDriftMonitor:
         """Register the immutable baseline for a model version."""
         key = (model_name, model_version)
         with self._lock:
+            if self._closed:
+                return
             current = self._states.get(key)
             if current is not None:
                 if current.reference != reference:
@@ -356,6 +359,12 @@ class ServingDriftMonitor:
                     model_name, model_version, state.reference.feature_names
                 )
             self._states.clear()
+
+    def close(self) -> None:
+        """Retire the monitor and prevent stale request references reviving it."""
+        with self._lock:
+            self._closed = True
+            self.clear()
 
     def _report(
         self,

@@ -61,6 +61,7 @@ def test_reloading_same_version_without_reference_clears_stale_drift() -> None:
         MetricsCollector(metrics_registry), window_size=4, min_samples=2
     )
     monitor.observe("fraud", "7", [[10.0], [11.0]], reference)
+    assert 'model="fraud"' in generate_latest(metrics_registry).decode("utf-8")
     registry = ReloadingRegistry()
     app = create_app(APISettings(environment="development", api_key="test-key"))
     app.dependency_overrides[get_registry] = lambda: registry

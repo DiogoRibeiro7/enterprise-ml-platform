@@ -230,7 +230,8 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
 
     assert single.status_code == 200
     assert batch.status_code == 200
-    assert failed.status_code == 400
+    assert failed.status_code == 500
+    assert failed.json()["detail"] == "Inference failed: model runtime failed"
     assert invalid_output.status_code == 500
     assert "cannot be converted" in invalid_output.json()["detail"]
     assert exported.status_code == 200

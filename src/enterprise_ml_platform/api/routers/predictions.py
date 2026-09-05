@@ -79,8 +79,8 @@ async def _predict(loaded: LoadedModel, rows: Sequence[Sequence[float]]) -> list
     array = np.asarray(rows, dtype=float)
     try:
         raw = await asyncio.to_thread(loaded.predict, array)
-    except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a 400
-        raise HTTPException(status_code=400, detail=f"Inference failed: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001 - model failures are server errors
+        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}") from exc
     try:
         return np.asarray(raw).astype(float).ravel().tolist()
     except (TypeError, ValueError) as exc:

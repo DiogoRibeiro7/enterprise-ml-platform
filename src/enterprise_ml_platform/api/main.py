@@ -22,10 +22,10 @@ from .routers import ab_testing, feature_store, health, models, predictions
 logger = structlog.get_logger(__name__)
 
 
-async def _request_validation_error(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def _request_validation_error(_request: Request, exc: Exception) -> JSONResponse:
     """Return serialisable validation details without echoing request values."""
+    if not isinstance(exc, RequestValidationError):  # pragma: no cover - framework API
+        raise exc
     details = [
         {key: value for key, value in error.items() if key != "input"}
         for error in exc.errors()

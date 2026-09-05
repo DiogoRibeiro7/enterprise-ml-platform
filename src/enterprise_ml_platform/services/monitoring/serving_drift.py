@@ -33,7 +33,9 @@ def _bucket_probabilities(
         raise ValueError("drift scoring requires at least one row")
     buckets = np.searchsorted(np.asarray(cut_points), values, side="right")
     counts = np.bincount(buckets, minlength=len(cut_points) + 1)
-    return counts.astype(float) / counts.sum()
+    probabilities: np.ndarray = counts.astype(float)
+    probabilities /= probabilities.sum()
+    return probabilities
 
 
 @dataclass(frozen=True)

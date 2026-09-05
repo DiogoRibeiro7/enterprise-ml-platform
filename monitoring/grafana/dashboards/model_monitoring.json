@@ -1,26 +1,140 @@
 {
-  "title": "Model Monitoring",
-  "timezone": "browser",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
   "panels": [
     {
-      "type": "graph",
-      "title": "Feature Drift",
-      "targets": [
-        {"expr": "ml_feature_drift_score"}
-      ],
       "datasource": null,
-      "id": 1
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum by (model, version) (rate(ml_predictions_total[5m]))",
+          "legendFormat": "{{model}} v{{version}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Prediction throughput by version",
+      "type": "timeseries"
     },
     {
-      "type": "graph",
-      "title": "Model Accuracy",
-      "targets": [
-        {"expr": "ml_model_accuracy"}
-      ],
       "datasource": null,
-      "id": 2
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "100 * (sum by (model, version) (rate(ml_prediction_requests_total{outcome=\"error\"}[5m])) or 0 * sum by (model, version) (rate(ml_prediction_requests_total[5m]))) / clamp_min(sum by (model, version) (rate(ml_prediction_requests_total[5m])), 1e-9)",
+          "legendFormat": "{{model}} v{{version}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Inference error rate by version",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, model, version) (rate(ml_prediction_latency_seconds_bucket{outcome=\"success\"}[5m])))",
+          "legendFormat": "{{model}} v{{version}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Successful inference p95 latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "ml_feature_drift_score",
+          "legendFormat": "{{feature}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Feature drift",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "ml_model_accuracy",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Model accuracy",
+      "type": "timeseries"
     }
   ],
-  "schemaVersion": 16,
-  "version": 1
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "mlops",
+    "serving"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Model Monitoring",
+  "uid": "enterprise-ml-model-monitoring",
+  "version": 2
 }

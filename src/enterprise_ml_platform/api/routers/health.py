@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from ..dependencies import ModelRegistry, get_registry
+from ...services.monitoring.collectors import MetricsCollector
+from ..dependencies import ModelRegistry, get_metrics, get_registry
 from ..schemas import HealthStatus
 
 router = APIRouter(tags=["health"])
@@ -30,8 +31,10 @@ async def health_detailed(
 
 
 @router.get("/metrics")
-async def metrics() -> Response:
+async def metrics(
+    collector: MetricsCollector = Depends(get_metrics),
+) -> Response:
     """Expose Prometheus metrics."""
 
-    data = generate_latest()
+    data = generate_latest(collector.registry)
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)

@@ -16,10 +16,12 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 
 from ...services.monitoring.collectors import MetricsCollector
+from ...services.monitoring.serving_drift import ServingDriftMonitor
 from ..config import APISettings
 from ..dependencies import (
     LoadedModel,
     ModelRegistry,
+    get_drift_monitor,
     get_metrics,
     get_registry,
     get_settings,
@@ -82,12 +84,18 @@ async def _predict(loaded: LoadedModel, rows: Sequence[Sequence[float]]) -> list
     except Exception as exc:  # noqa: BLE001 - model failures are server errors
         raise HTTPException(status_code=500, detail=f"Inference failed: {exc}") from exc
     try:
-        return np.asarray(raw).astype(float).ravel().tolist()
+        predictions = np.asarray(raw).astype(float).ravel()
     except (TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=500,
             detail="Model returned predictions that cannot be converted to numbers",
         ) from exc
+    if not np.isfinite(predictions).all():
+        raise HTTPException(
+            status_code=500,
+            detail="Model returned non-finite predictions",
+        )
+    return predictions.tolist()
 
 
 async def _instrumented_predict(
@@ -139,10 +147,18 @@ async def predict(
     request: PredictionRequest,
     registry: ModelRegistry = Depends(get_registry),
     metrics: MetricsCollector = Depends(get_metrics),
+    drift_monitor: ServingDriftMonitor = Depends(get_drift_monitor),
 ) -> PredictionResponse:
     """Return a prediction for a single feature vector."""
     loaded = _resolve(registry, request.model_name, request.model_version)
     _validate_shape(loaded, [request.features])
+    await asyncio.to_thread(
+        drift_monitor.observe,
+        loaded.name,
+        loaded.version,
+        [request.features],
+        reference=loaded.drift_reference,
+    )
 
     predictions, latency_ms = await _instrumented_predict(
         loaded, [request.features], metrics
@@ -162,6 +178,7 @@ async def predict_batch(
     registry: ModelRegistry = Depends(get_registry),
     settings: APISettings = Depends(get_settings),
     metrics: MetricsCollector = Depends(get_metrics),
+    drift_monitor: ServingDriftMonitor = Depends(get_drift_monitor),
 ) -> BatchPredictionResponse:
     """Return predictions for a batch of feature vectors."""
     loaded = _resolve(registry, request.model_name, request.model_version)
@@ -174,6 +191,13 @@ async def predict_batch(
             ),
         )
     _validate_shape(loaded, request.items)
+    await asyncio.to_thread(
+        drift_monitor.observe,
+        loaded.name,
+        loaded.version,
+        request.items,
+        reference=loaded.drift_reference,
+    )
 
     predictions, latency_ms = await _instrumented_predict(
         loaded, request.items, metrics

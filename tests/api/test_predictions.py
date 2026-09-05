@@ -20,11 +20,17 @@ from prometheus_client import CollectorRegistry, generate_latest
 from enterprise_ml_platform.api.config import APISettings
 from enterprise_ml_platform.api.dependencies import (
     LoadedModel,
+    ModelRegistry,
+    get_drift_monitor,
     get_metrics,
     get_registry,
 )
 from enterprise_ml_platform.api.main import create_app
 from enterprise_ml_platform.services.monitoring.collectors import MetricsCollector
+from enterprise_ml_platform.services.monitoring.serving_drift import (
+    DriftReference,
+    ServingDriftMonitor,
+)
 
 HEADERS = {"X-API-Key": "test-key"}
 IRIS_ROW = [5.1, 3.5, 1.4, 0.2]
@@ -128,6 +134,17 @@ def test_empty_batch_is_rejected(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_features_are_rejected(client: TestClient, value: str) -> None:
+    response = client.post(
+        "/api/v1/predict",
+        headers={**HEADERS, "Content-Type": "application/json"},
+        content=(f'{{"model_name":"iris","features":[{value},3.5,1.4,0.2]}}'),
+    )
+
+    assert response.status_code == 422
+
+
 def test_oversized_batch_is_rejected(client: TestClient) -> None:
     """Without a cap, one request can pin a worker for an unbounded time."""
     response = client.post(
@@ -180,6 +197,12 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         def predict(self, data: np.ndarray) -> list[str]:
             return ["not-a-number"] * len(data)
 
+    class NonFiniteOutputModel:
+        n_features_in_ = 4
+
+        def predict(self, data: np.ndarray) -> list[float]:
+            return [float("nan")] * len(data)
+
     registry._models["telemetry-success"] = LoadedModel(
         name="telemetry-success",
         version="42",
@@ -198,6 +221,13 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         name="telemetry-invalid-output",
         version="44",
         model=InvalidOutputModel(),
+        source="registry",
+        n_features=4,
+    )
+    registry._models["telemetry-non-finite-output"] = LoadedModel(
+        name="telemetry-non-finite-output",
+        version="45",
+        model=NonFiniteOutputModel(),
         source="registry",
         n_features=4,
     )
@@ -226,6 +256,11 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         headers=HEADERS,
         json={"model_name": "telemetry-invalid-output", "features": IRIS_ROW},
     )
+    non_finite_output = client.post(
+        "/api/v1/predict",
+        headers=HEADERS,
+        json={"model_name": "telemetry-non-finite-output", "features": IRIS_ROW},
+    )
     exported = client.get("/api/v1/metrics", headers=HEADERS)
 
     assert single.status_code == 200
@@ -234,6 +269,8 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
     assert failed.json()["detail"] == "Inference failed: model runtime failed"
     assert invalid_output.status_code == 500
     assert "cannot be converted" in invalid_output.json()["detail"]
+    assert non_finite_output.status_code == 500
+    assert non_finite_output.json()["detail"] == "Model returned non-finite predictions"
     assert exported.status_code == 200
     metrics = exported.text
     assert (
@@ -251,6 +288,90 @@ def test_serving_metrics_are_exported_per_model_version() -> None:
         'ml_prediction_requests_total{model="telemetry-invalid-output",'
         'outcome="error",version="44"} 1.0'
     ) in metrics
+    assert (
+        'ml_prediction_requests_total{model="telemetry-non-finite-output",'
+        'outcome="error",version="45"} 1.0'
+    ) in metrics
+
+
+def test_served_inputs_update_version_scoped_drift() -> None:
+    """Validated traffic must feed the baseline of the exact served artifact."""
+    settings = APISettings(
+        environment="development",
+        api_key="test-key",
+        drift_window_size=4,
+        drift_min_samples=2,
+        drift_threshold=0.2,
+    )
+    app = create_app(settings)
+    metrics_registry = CollectorRegistry()
+    metrics = MetricsCollector(metrics_registry)
+    drift_monitor = ServingDriftMonitor(
+        metrics, window_size=4, min_samples=2, threshold=0.2
+    )
+    app.dependency_overrides[get_metrics] = lambda: metrics
+    app.dependency_overrides[get_drift_monitor] = lambda: drift_monitor
+    client = TestClient(app)
+
+    loaded = client.post("/api/v1/models/iris/load", headers=HEADERS)
+    collecting = client.get("/api/v1/models/iris/drift", headers=HEADERS)
+    for _ in range(2):
+        response = client.post(
+            "/api/v1/predict",
+            headers=HEADERS,
+            json={"model_name": "iris", "features": [100.0] * 4},
+        )
+        assert response.status_code == 200
+    ready = client.get("/api/v1/models/iris/drift", headers=HEADERS)
+    exported = client.get("/api/v1/metrics", headers=HEADERS)
+
+    assert loaded.status_code == 200
+    assert collecting.json()["state"] == "collecting"
+    assert collecting.json()["observed_rows"] == 0
+    assert ready.status_code == 200
+    assert ready.json()["model_version"] == "demo"
+    assert ready.json()["state"] == "ready"
+    assert ready.json()["drifted_features"]
+    assert (
+        'ml_feature_drift_score{feature="sepal length (cm)",model="iris",'
+        'version="demo"}'
+    ) in exported.text
+
+
+def test_loading_a_new_version_discards_the_previous_drift_window() -> None:
+    app = create_app(APISettings(environment="development", api_key="test-key"))
+    metrics_registry = CollectorRegistry()
+    metrics = MetricsCollector(metrics_registry)
+    drift_monitor = ServingDriftMonitor(
+        metrics, window_size=4, min_samples=2, threshold=0.2
+    )
+    registry = get_registry()
+    reference = DriftReference.from_array(
+        [IRIS_ROW, [5.0, 3.4, 1.5, 0.3]],
+        ["sepal_length", "sepal_width", "petal_length", "petal_width"],
+    )
+
+    class ConstantModel:
+        def predict(self, data: np.ndarray) -> list[float]:
+            return [0.0] * len(data)
+
+    registry._models["iris"] = LoadedModel(
+        name="iris",
+        version="1",
+        model=ConstantModel(),
+        source="registry",
+        n_features=4,
+        drift_reference=reference,
+    )
+    drift_monitor.observe("iris", "1", [IRIS_ROW, IRIS_ROW], reference)
+    app.dependency_overrides[get_drift_monitor] = lambda: drift_monitor
+
+    response = TestClient(app).post("/api/v1/models/iris/load", headers=HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["version"] == "demo"
+    assert drift_monitor.status("iris", "1").state == "unavailable"
+    assert 'version="1"' not in generate_latest(metrics_registry).decode("utf-8")
 
 
 async def test_cancelled_inference_is_recorded_as_an_error() -> None:
@@ -317,6 +438,41 @@ async def test_inference_runs_off_the_event_loop() -> None:
 
     assert observed["thread"] != loop_thread, "inference ran on the event loop thread"
     assert ticks > 1, "the event loop was blocked while inference ran"
+
+
+async def test_drift_scoring_runs_off_the_event_loop() -> None:
+    loop_thread = threading.current_thread().name
+    observed: dict[str, str] = {}
+
+    class ConstantModel:
+        def predict(self, data: np.ndarray) -> list[float]:
+            return [0.0] * len(data)
+
+    class RecordingDriftMonitor:
+        def observe(self, *args: object, **kwargs: object) -> None:
+            observed["thread"] = threading.current_thread().name
+
+    from enterprise_ml_platform.api.routers.predictions import predict
+    from enterprise_ml_platform.api.schemas import PredictionRequest
+
+    loaded = LoadedModel(
+        name="fraud",
+        version="7",
+        model=ConstantModel(),
+        source="registry",
+        n_features=4,
+    )
+    registry = ModelRegistry()
+    registry._models["fraud"] = loaded
+
+    await predict(
+        PredictionRequest(model_name="fraud", features=IRIS_ROW),
+        registry,
+        MetricsCollector(CollectorRegistry()),
+        RecordingDriftMonitor(),  # type: ignore[arg-type]
+    )
+
+    assert observed["thread"] != loop_thread, "drift scoring ran on the event loop"
 
 
 def test_concurrent_requests_are_not_serialised_by_one_slow_model() -> None:

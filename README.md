@@ -115,6 +115,24 @@ per-version throughput, error rate and p95 successful latency. Validation
 failures are client errors and do not count against a model version; failures
 raised by the model do.
 
+Tracked training runs also store `monitoring/drift_reference.json`: a
+versioned profile of feature means and quantile buckets, not the underlying
+training rows. When that artifact is promoted and loaded, validated serving
+inputs enter a bounded rolling window belonging only to that immutable model
+version. The API reports whether the window is still collecting, ready, or
+unavailable for an older model without a reference:
+
+```bash
+curl localhost:8000/api/v1/models/iris/drift -H "X-API-Key: local-dev-key"
+```
+
+Once the window is ready, PSI scores and threshold states are exported as
+`ml_feature_drift_score{model,version,feature}` and
+`ml_feature_drift_detected{model,version,feature}`. Prometheus loads the
+committed rule that alerts only after a threshold breach persists for five
+minutes. Promotion and rollback each start a fresh, independent window for the
+newly loaded version, and discard the no-longer-served window.
+
 With the authenticated quickstart below:
 
 ```bash
@@ -197,6 +215,9 @@ Every setting is read from the environment. Nothing is baked into the source.
 | `MLP_ALLOW_DEMO_MODELS` | `true` in development | Refused outside development |
 | `MLP_FEATURE_STORE_REDIS_URL` | `redis://localhost:6379/0` | Online store |
 | `MLP_FEATURE_STORE_OFFLINE_PATH` | unset | Parquet root. Unset means an in-memory store that does not survive a restart |
+| `MLP_DRIFT_WINDOW_SIZE` | `256` | Maximum validated serving rows retained per model version |
+| `MLP_DRIFT_MIN_SAMPLES` | `50` | Rows required before drift scores are published |
+| `MLP_DRIFT_THRESHOLD` | `0.2` | PSI threshold that marks a feature as drifted |
 | `MLP_HOST` / `MLP_PORT` | `127.0.0.1` / `8000` | Bind address |
 | `MLFLOW_TRACKING_URI` | unset | Training logs nothing unless this is set |
 

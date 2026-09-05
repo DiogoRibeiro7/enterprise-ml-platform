@@ -7,6 +7,7 @@ into the source.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -35,6 +36,18 @@ def _int_env(source: Mapping[str, str], name: str, default: int) -> int:
     except ValueError as exc:
         raise ConfigurationError(
             f"{ENV_PREFIX}{name} must be an integer, got {raw!r}"
+        ) from exc
+
+
+def _float_env(source: Mapping[str, str], name: str, default: float) -> float:
+    raw = _env(source, name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ConfigurationError(
+            f"{ENV_PREFIX}{name} must be a number, got {raw!r}"
         ) from exc
 
 
@@ -67,6 +80,9 @@ class APISettings:
         cors_origins: Exact origins allowed to call the API from a browser.
         rate_limit_per_minute: Requests allowed per client per minute.
         request_timeout_seconds: Seconds before an in-flight request is aborted.
+        drift_window_size: Maximum live rows retained for each served version.
+        drift_min_samples: Rows required before drift is evaluated.
+        drift_threshold: PSI score that marks a feature as drifted.
         host: Interface the server binds to.
         port: Port the server binds to.
     """
@@ -84,6 +100,9 @@ class APISettings:
     max_batch_size: int = 1000
     feature_store_redis_url: str = "redis://localhost:6379/0"
     feature_store_offline_path: str | None = None
+    drift_window_size: int = 256
+    drift_min_samples: int = 50
+    drift_threshold: float = 0.2
 
     @property
     def is_development(self) -> bool:
@@ -95,6 +114,21 @@ class APISettings:
             raise ConfigurationError(
                 f"{ENV_PREFIX}MAX_BATCH_SIZE must be at least 1, "
                 f"got {self.max_batch_size}"
+            )
+        if self.drift_window_size < 2:
+            raise ConfigurationError(
+                f"{ENV_PREFIX}DRIFT_WINDOW_SIZE must be at least 2, "
+                f"got {self.drift_window_size}"
+            )
+        if not 2 <= self.drift_min_samples <= self.drift_window_size:
+            raise ConfigurationError(
+                f"{ENV_PREFIX}DRIFT_MIN_SAMPLES must be between 2 and "
+                f"{ENV_PREFIX}DRIFT_WINDOW_SIZE, got {self.drift_min_samples}"
+            )
+        if not math.isfinite(self.drift_threshold) or self.drift_threshold <= 0:
+            raise ConfigurationError(
+                f"{ENV_PREFIX}DRIFT_THRESHOLD must be positive, "
+                f"got {self.drift_threshold}"
             )
         if self.is_development:
             return
@@ -155,4 +189,7 @@ class APISettings:
                 or "redis://localhost:6379/0"
             ),
             feature_store_offline_path=_env(source, "FEATURE_STORE_OFFLINE_PATH"),
+            drift_window_size=_int_env(source, "DRIFT_WINDOW_SIZE", 256),
+            drift_min_samples=_int_env(source, "DRIFT_MIN_SAMPLES", 50),
+            drift_threshold=_float_env(source, "DRIFT_THRESHOLD", 0.2),
         )

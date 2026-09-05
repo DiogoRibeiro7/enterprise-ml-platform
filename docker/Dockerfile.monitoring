@@ -1,17 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.11-slim AS base
-WORKDIR /app
+FROM prom/prometheus:v2.47.0
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /etc/prometheus
 
-COPY pyproject.toml README.md /app/
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir prometheus-client fastapi uvicorn
-
-RUN useradd -m monitor
-USER monitor
-
-COPY src/ ./src/
+COPY --chown=nobody:nobody monitoring/prometheus/prometheus.yml /etc/prometheus/prometheus.yml
+COPY --chown=nobody:nobody monitoring/prometheus/rules/ /etc/prometheus/rules/
 
 EXPOSE 9090
-CMD ["uvicorn", "enterprise_ml_platform.api.main:app", "--host", "0.0.0.0", "--port", "9090"]

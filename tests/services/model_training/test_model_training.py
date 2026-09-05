@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import pathlib
 
 import mlflow
@@ -15,6 +16,10 @@ from enterprise_ml_platform.services.model_registry import CHAMPION, MLflowModel
 from enterprise_ml_platform.services.model_training import (
     ModelConfig,
     ModelTrainingService,
+)
+from enterprise_ml_platform.services.monitoring.serving_drift import (
+    DRIFT_REFERENCE_ARTIFACT,
+    DriftReference,
 )
 
 
@@ -90,7 +95,37 @@ def test_training_logs_into_the_configured_store(
     assert service.last_run_id, "the run id must be exposed for the registry"
     run = mlflow.get_run(service.last_run_id)
     assert run.data.metrics["accuracy"] == pytest.approx(metrics["accuracy"])
+    reference_path = mlflow.MlflowClient().download_artifacts(
+        service.last_run_id, DRIFT_REFERENCE_ARTIFACT
+    )
+    reference = DriftReference.from_dict(
+        json.loads(pathlib.Path(reference_path).read_text(encoding="utf-8"))
+    )
+    assert reference.sample_count == len(X)
+    assert reference.feature_count == X.shape[1]
     assert (tmp_path / "mlflow.db").exists()
+
+
+def test_drift_reference_failure_does_not_abort_tracking(
+    tmp_path: pathlib.Path, restore_mlflow_state, monkeypatch
+) -> None:
+    uri = f"sqlite:///{(tmp_path / 'mlflow.db').as_posix()}"
+    X, y = make_classification(n_samples=50, n_features=4, random_state=42)
+    service = ModelTrainingService(
+        tracking_uri=uri,
+        experiment_name="best-effort-drift-reference",
+        artifact_location=(tmp_path / "artifacts").as_uri(),
+    )
+
+    def fail_reference(*args, **kwargs):
+        raise ValueError("reference cannot be summarized")
+
+    monkeypatch.setattr(DriftReference, "from_array", fail_reference)
+
+    asyncio.run(service.train(X, y, _config()))
+
+    assert service.last_run_id
+    assert service.last_model_uri
 
 
 def test_a_tracked_run_can_be_promoted_through_the_registry(

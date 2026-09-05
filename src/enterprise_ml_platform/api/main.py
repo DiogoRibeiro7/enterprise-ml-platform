@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from . import dependencies
 from .config import APISettings
@@ -17,6 +20,17 @@ from .middleware import (
 from .routers import ab_testing, feature_store, health, models, predictions
 
 logger = structlog.get_logger(__name__)
+
+
+async def _request_validation_error(_request: Request, exc: Exception) -> JSONResponse:
+    """Return serialisable validation details without echoing request values."""
+    if not isinstance(exc, RequestValidationError):  # pragma: no cover - framework API
+        raise exc
+    details = [
+        {key: value for key, value in error.items() if key != "input"}
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(details)})
 
 
 def create_app(settings: APISettings | None = None) -> FastAPI:
@@ -32,6 +46,7 @@ def create_app(settings: APISettings | None = None) -> FastAPI:
 
     app = FastAPI(title="Enterprise ML Platform API", version="1.0.0")
     app.state.settings = settings
+    app.add_exception_handler(RequestValidationError, _request_validation_error)
 
     # Routers
     app.include_router(predictions.router, prefix="/api/v1")

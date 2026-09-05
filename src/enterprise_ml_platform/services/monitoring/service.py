@@ -90,7 +90,12 @@ class MonitoringService:
                 [event.confidence] if event.confidence is not None else None,
             )
             for feature, score in drift_scores.items():
-                self.metrics.set_drift(feature, score)
+                self.metrics.set_drift(
+                    feature,
+                    score,
+                    model=event.model_name,
+                    version=event.model_version,
+                )
                 metric_values[f"{feature}_drift"] = score
 
         alerts = self.rules_engine.evaluate(metric_values)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Gauge, Histogram
 
 
@@ -40,7 +42,19 @@ class MetricsCollector:
         self.drift = Gauge(
             "ml_feature_drift_score",
             "Feature drift score",
-            ["feature"],
+            ["model", "version", "feature"],
+            registry=self.registry,
+        )
+        self.drift_detected = Gauge(
+            "ml_feature_drift_detected",
+            "Whether a feature drift score meets the configured threshold",
+            ["model", "version", "feature"],
+            registry=self.registry,
+        )
+        self.drift_ready = Gauge(
+            "ml_drift_monitor_ready",
+            "Whether enough serving rows exist to evaluate drift",
+            ["model", "version"],
             registry=self.registry,
         )
         # Feature store metrics
@@ -114,5 +128,29 @@ class MetricsCollector:
     def set_accuracy(self, model: str, value: float) -> None:
         self.accuracy.labels(model).set(value)
 
-    def set_drift(self, feature: str, score: float) -> None:
-        self.drift.labels(feature).set(score)
+    def set_drift(
+        self,
+        feature: str,
+        score: float,
+        *,
+        model: str = "unknown",
+        version: str = "unknown",
+        detected: bool | None = None,
+    ) -> None:
+        """Publish a feature drift score for an immutable model version."""
+        self.drift.labels(model, version, feature).set(score)
+        if detected is not None:
+            self.drift_detected.labels(model, version, feature).set(int(detected))
+
+    def set_drift_ready(self, model: str, version: str, *, ready: bool) -> None:
+        """Publish whether a serving window can be evaluated yet."""
+        self.drift_ready.labels(model, version).set(int(ready))
+
+    def clear_drift(self, model: str, version: str, features: tuple[str, ...]) -> None:
+        """Remove metric children for an unloaded model version."""
+        for feature in features:
+            for gauge in (self.drift, self.drift_detected):
+                with suppress(KeyError):
+                    gauge.remove(model, version, feature)
+        with suppress(KeyError):
+            self.drift_ready.remove(model, version)

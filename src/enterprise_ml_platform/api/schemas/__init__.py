@@ -1,7 +1,7 @@
 """Public Pydantic schemas for the API layer."""
 
 from .health import HealthStatus
-from .models import ModelInfo
+from .models import DriftStatus, ModelInfo
 from .predictions import (
     BatchPredictionRequest,
     BatchPredictionResponse,
@@ -15,5 +15,6 @@ __all__ = [
     "BatchPredictionRequest",
     "BatchPredictionResponse",
     "ModelInfo",
+    "DriftStatus",
     "HealthStatus",
 ]

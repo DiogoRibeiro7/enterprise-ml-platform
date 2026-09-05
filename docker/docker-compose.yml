@@ -37,7 +37,10 @@ services:
       dockerfile: docker/Dockerfile.monitoring
     ports:
       - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
     depends_on:
       - api
 volumes:
   mlruns:
+  prometheus_data:

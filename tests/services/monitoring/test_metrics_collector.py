@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from prometheus_client import CollectorRegistry, generate_latest
 
+from enterprise_ml_platform.services.monitoring import (
+    MonitoringService,
+    PredictionEvent,
+)
 from enterprise_ml_platform.services.monitoring.collectors import MetricsCollector
 
 
@@ -59,3 +65,30 @@ def test_success_rejects_an_empty_item_count() -> None:
 
     with pytest.raises(ValueError, match="item_count must be at least 1"):
         metrics.record_prediction("fraud-risk", 0.01, item_count=0)
+
+
+def test_monitoring_events_keep_model_version_on_drift_metrics() -> None:
+    registry = CollectorRegistry()
+    metrics = MetricsCollector(registry)
+
+    class DriftAnalyzer:
+        def check(self, *args: object, **kwargs: object) -> dict[str, float]:
+            return {"amount": 0.42}
+
+    service = MonitoringService(metrics=metrics, drift_analyzer=DriftAnalyzer())  # type: ignore[arg-type]
+
+    asyncio.run(
+        service.handle_event(
+            PredictionEvent(
+                model_name="fraud-risk",
+                model_version="7",
+                latency=0.01,
+                predicted=1.0,
+                features={"amount": 100.0},
+            )
+        )
+    )
+
+    assert (
+        'ml_feature_drift_score{feature="amount",model="fraud-risk",version="7"} 0.42'
+    ) in _render(registry)

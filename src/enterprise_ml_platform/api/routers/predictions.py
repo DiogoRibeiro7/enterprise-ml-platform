@@ -16,10 +16,12 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 
 from ...services.monitoring.collectors import MetricsCollector
+from ...services.monitoring.serving_drift import ServingDriftMonitor
 from ..config import APISettings
 from ..dependencies import (
     LoadedModel,
     ModelRegistry,
+    get_drift_monitor,
     get_metrics,
     get_registry,
     get_settings,
@@ -139,10 +141,17 @@ async def predict(
     request: PredictionRequest,
     registry: ModelRegistry = Depends(get_registry),
     metrics: MetricsCollector = Depends(get_metrics),
+    drift_monitor: ServingDriftMonitor = Depends(get_drift_monitor),
 ) -> PredictionResponse:
     """Return a prediction for a single feature vector."""
     loaded = _resolve(registry, request.model_name, request.model_version)
     _validate_shape(loaded, [request.features])
+    drift_monitor.observe(
+        loaded.name,
+        loaded.version,
+        [request.features],
+        reference=loaded.drift_reference,
+    )
 
     predictions, latency_ms = await _instrumented_predict(
         loaded, [request.features], metrics
@@ -162,6 +171,7 @@ async def predict_batch(
     registry: ModelRegistry = Depends(get_registry),
     settings: APISettings = Depends(get_settings),
     metrics: MetricsCollector = Depends(get_metrics),
+    drift_monitor: ServingDriftMonitor = Depends(get_drift_monitor),
 ) -> BatchPredictionResponse:
     """Return predictions for a batch of feature vectors."""
     loaded = _resolve(registry, request.model_name, request.model_version)
@@ -174,6 +184,12 @@ async def predict_batch(
             ),
         )
     _validate_shape(loaded, request.items)
+    drift_monitor.observe(
+        loaded.name,
+        loaded.version,
+        request.items,
+        reference=loaded.drift_reference,
+    )
 
     predictions, latency_ms = await _instrumented_predict(
         loaded, request.items, metrics

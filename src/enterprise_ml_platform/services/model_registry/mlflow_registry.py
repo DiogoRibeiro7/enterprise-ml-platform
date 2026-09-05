@@ -19,7 +19,9 @@ resolves to a different version without the serving layer changing.
 from __future__ import annotations
 
 import datetime as dt
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -35,6 +37,7 @@ except Exception:  # pragma: no cover
     MlflowException = Exception  # type: ignore
 
 from ...core.exceptions import ServiceError
+from ..monitoring.serving_drift import DRIFT_REFERENCE_ARTIFACT, DriftReference
 
 CHAMPION = "champion"
 CHALLENGER = "challenger"
@@ -302,6 +305,30 @@ class MLflowModelRegistry:
             return mlflow.sklearn.load_model(uri)
         except Exception as exc:
             raise ModelRegistryError(f"could not load {uri}: {exc}") from exc
+
+    def load_drift_reference(self, version: ModelVersionInfo) -> DriftReference | None:
+        """Load the non-row-level drift baseline from a model's training run.
+
+        Older externally produced models may not carry the artifact. They
+        remain servable, but their drift endpoint reports ``unavailable``
+        rather than silently treating live traffic as the reference.
+        """
+        if not version.run_id:
+            return None
+        try:
+            path = self.client.download_artifacts(
+                version.run_id, DRIFT_REFERENCE_ARTIFACT
+            )
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            return DriftReference.from_dict(payload)
+        except Exception as exc:  # noqa: BLE001 - monitoring must not block serving
+            self.logger.warning(
+                "drift_reference_unavailable",
+                name=version.name,
+                version=version.version,
+                error=str(exc),
+            )
+            return None
 
     # ------------------------------------------------------------------
     @staticmethod

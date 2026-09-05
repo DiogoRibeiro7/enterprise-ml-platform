@@ -2,9 +2,16 @@ groups:
   - name: ml-rules
     rules:
       - alert: HighErrorRate
-        expr: rate(ml_prediction_errors_total[5m]) > 0
-        for: 1m
+        expr: sum by (model, version) (rate(ml_prediction_requests_total{outcome="error"}[5m])) / clamp_min(sum by (model, version) (rate(ml_prediction_requests_total[5m])), 1e-9) > 0.05
+        for: 5m
         labels:
           severity: warning
         annotations:
-          summary: High prediction error rate
+          summary: High prediction error rate for {{ $labels.model }} v{{ $labels.version }}
+      - alert: ModelFeatureDrift
+        expr: ml_feature_drift_detected == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Input drift detected for {{ $labels.model }} v{{ $labels.version }}

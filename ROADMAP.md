@@ -66,6 +66,10 @@ that stops it happening again unnoticed.
   outcomes, successful rows and latency against the exact model version that
   served them. Prometheus scrapes the real API route, and the Grafana dashboard
   computes per-version throughput, error rate and p95 successful latency.
+- **Drift monitoring wired to serving.** Tracked runs store summary-only input
+  baselines. Validated serving rows feed bounded windows isolated by model and
+  immutable version; the API exposes readiness and scores, Prometheus loads a
+  sustained drift alert, and Grafana shows version-scoped drift state.
 
 ## Next
 
@@ -73,14 +77,12 @@ In the order each becomes worth doing. Which release they land in is decided
 when they land, not here: a version number written down in advance is a claim
 that goes stale on its own.
 
-1. **Drift monitoring wired to the served model.** Drift detection exists but
-   nothing feeds it live serving traffic or acts on its output.
-2. **A real SageMaker run.** The deployer is verified against the API contract,
+1. **A real SageMaker run.** The deployer is verified against the API contract,
    not against AWS. One end-to-end deployment in a sandbox account would close
    the gap between "the calls are right" and "it deploys".
-3. **Type annotations for the legacy services.** `pyproject.toml` lists the
+2. **Type annotations for the legacy services.** `pyproject.toml` lists the
    modules still exempt from strict mypy. That list should only shrink.
-4. **Lint the examples.** CI checks `src` and `tests`. The example directory is
+3. **Lint the examples.** CI checks `src` and `tests`. The example directory is
    excluded, which is why 27 legacy files there have never been formatted.
 
 ## Not planned

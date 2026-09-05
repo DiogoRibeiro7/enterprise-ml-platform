@@ -21,6 +21,10 @@ from enterprise_ml_platform.services.model_registry import (
     MLflowModelRegistry,
     ModelRegistryError,
 )
+from enterprise_ml_platform.services.monitoring.serving_drift import (
+    DRIFT_REFERENCE_ARTIFACT,
+    DriftReference,
+)
 
 
 @pytest.fixture
@@ -49,6 +53,12 @@ def logged_model(registry):
         model = LogisticRegression(max_iter=200).fit(data.data, data.target)
         with mlflow.start_run():
             mlflow.log_metrics({"accuracy": accuracy})
+            mlflow.log_dict(
+                DriftReference.from_array(
+                    data.data, [str(name) for name in data.feature_names]
+                ).to_dict(),
+                DRIFT_REFERENCE_ARTIFACT,
+            )
             # Skip dependency inference: it shells out to pip and dominates
             # the runtime of every test in this module.
             return mlflow.sklearn.log_model(
@@ -170,6 +180,16 @@ def test_loading_by_alias_returns_a_usable_model(registry, logged_model) -> None
     model = registry.load("iris", alias=CHAMPION)
 
     assert model.predict(load_iris().data[:3]).shape == (3,)
+
+
+def test_registered_version_loads_its_drift_reference(registry, logged_model) -> None:
+    version = registry.register("iris", logged_model())
+
+    reference = registry.load_drift_reference(version)
+
+    assert reference is not None
+    assert reference.sample_count == 150
+    assert reference.feature_count == 4
 
 
 def test_loading_follows_the_alias_after_promotion(registry, logged_model) -> None:

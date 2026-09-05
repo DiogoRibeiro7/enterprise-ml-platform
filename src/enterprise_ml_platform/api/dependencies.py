@@ -28,6 +28,7 @@ from ..services.feature_store import (
 )
 from ..services.model_registry import MLflowModelRegistry, ModelRegistryError
 from ..services.monitoring.collectors.metrics_collector import MetricsCollector
+from ..services.monitoring.serving_drift import DriftReference, ServingDriftMonitor
 from .config import APISettings
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle at runtime
@@ -52,6 +53,7 @@ class LoadedModel:
         model: The object predictions are made with.
         source: ``registry`` or ``demo``.
         n_features: Feature count the model expects, when it advertises one.
+        drift_reference: Summary-only training distribution, when available.
     """
 
     name: str
@@ -59,6 +61,7 @@ class LoadedModel:
     model: Any
     source: str
     n_features: int | None = None
+    drift_reference: DriftReference | None = None
 
     def predict(self, data: Any) -> Any:
         """Run inference. Blocking; callers must keep this off the event loop."""
@@ -160,20 +163,28 @@ class ModelRegistry:
         assert self.backend is not None
         resolved_alias = alias or self.default_alias
         try:
-            model = self.backend.load(name, alias=resolved_alias, version=version)
             info = (
                 self.backend.get_version(name, version)
                 if version
                 else self.backend.get_by_alias(name, resolved_alias)
             )
+            # Resolve the alias once, then load that immutable version. If an
+            # operator promotes a new champion concurrently, the model,
+            # version label and drift reference still describe one artifact.
+            model = self.backend.load(name, version=info.version)
+            drift_reference = self.backend.load_drift_reference(info)
         except ModelRegistryError as exc:
             raise ModelNotAvailableError(str(exc)) from exc
+        n_features = getattr(model, "n_features_in_", None)
+        if n_features is None and drift_reference is not None:
+            n_features = drift_reference.feature_count
         return LoadedModel(
             name=name,
             version=info.version,
             model=model,
             source="registry",
-            n_features=getattr(model, "n_features_in_", None),
+            n_features=n_features,
+            drift_reference=drift_reference,
         )
 
     # ------------------------------------------------------------------
@@ -194,6 +205,9 @@ class ModelRegistry:
 
         data = load_iris()
         model = LogisticRegression(max_iter=200).fit(data.data, data.target)
+        drift_reference = DriftReference.from_array(
+            data.data, [str(name) for name in data.feature_names]
+        )
         logger.warning("demo_model_loaded", model=name)
         return LoadedModel(
             name=name,
@@ -201,6 +215,7 @@ class ModelRegistry:
             model=model,
             source="demo",
             n_features=int(model.n_features_in_),
+            drift_reference=drift_reference,
         )
 
     # ------------------------------------------------------------------
@@ -261,7 +276,9 @@ _registry: ModelRegistry | None = None
 _feature_store: FeatureStoreService | None = None
 _settings: APISettings | None = None
 _metrics: MetricsCollector | None = None
+_drift_monitor: ServingDriftMonitor | None = None
 _metrics_lock = threading.Lock()
+_drift_monitor_lock = threading.Lock()
 
 
 def configure(settings: APISettings) -> None:
@@ -270,10 +287,16 @@ def configure(settings: APISettings) -> None:
     Called by the application factory so that each app gets components built
     from its own settings rather than from the ambient environment.
     """
-    global _registry, _feature_store, _settings
+    global _drift_monitor, _registry, _feature_store, _settings
     _settings = settings
     _registry = build_model_registry(settings)
     _feature_store = None  # rebuilt lazily; it opens a Redis connection
+    _drift_monitor = ServingDriftMonitor(
+        get_metrics(),
+        window_size=settings.drift_window_size,
+        min_samples=settings.drift_min_samples,
+        threshold=settings.drift_threshold,
+    )
 
 
 def get_settings() -> APISettings:
@@ -313,6 +336,22 @@ def get_feature_store() -> FeatureStoreService:
     if _feature_store is None:
         _feature_store = build_feature_store(get_settings(), get_metrics())
     return _feature_store
+
+
+def get_drift_monitor() -> ServingDriftMonitor:
+    """Return the version-scoped serving drift monitor."""
+    global _drift_monitor
+    if _drift_monitor is None:
+        with _drift_monitor_lock:
+            if _drift_monitor is None:
+                settings = get_settings()
+                _drift_monitor = ServingDriftMonitor(
+                    get_metrics(),
+                    window_size=settings.drift_window_size,
+                    min_samples=settings.drift_min_samples,
+                    threshold=settings.drift_threshold,
+                )
+    return _drift_monitor
 
 
 def get_logger() -> structlog.BoundLogger:

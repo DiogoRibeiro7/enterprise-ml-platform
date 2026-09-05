@@ -1,6 +1,9 @@
 global:
   scrape_interval: 15s
 
+rule_files:
+  - "rules/alert.rules.yml"
+
 scrape_configs:
   - job_name: "ml-platform"
     metrics_path: "/api/v1/metrics"

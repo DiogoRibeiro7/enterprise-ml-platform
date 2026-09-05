@@ -92,12 +92,12 @@
       "id": 4,
       "targets": [
         {
-          "expr": "ml_feature_drift_score",
-          "legendFormat": "{{feature}}",
+          "expr": "max by (model, version, feature) (ml_feature_drift_score)",
+          "legendFormat": "{{model}} v{{version}} · {{feature}}",
           "refId": "A"
         }
       ],
-      "title": "Feature drift",
+      "title": "Feature drift score by version",
       "type": "timeseries"
     },
     {
@@ -118,6 +118,32 @@
       ],
       "title": "Model accuracy",
       "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "max by (model, version, feature) (ml_feature_drift_detected)",
+          "legendFormat": "{{model}} v{{version}} · {{feature}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Drift threshold state by version",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -136,5 +162,5 @@
   "timezone": "browser",
   "title": "Model Monitoring",
   "uid": "enterprise-ml-model-monitoring",
-  "version": 2
+  "version": 3
 }

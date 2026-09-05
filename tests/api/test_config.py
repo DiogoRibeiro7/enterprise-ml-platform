@@ -76,6 +76,9 @@ def test_settings_read_from_environment() -> None:
             "MLP_MODEL_REGISTRY_URI": "sqlite:///registry.db",
             "MLP_ALLOW_DEMO_MODELS": "false",
             "MLP_MAX_BATCH_SIZE": "64",
+            "MLP_DRIFT_WINDOW_SIZE": "128",
+            "MLP_DRIFT_MIN_SAMPLES": "32",
+            "MLP_DRIFT_THRESHOLD": "0.35",
         }
     )
 
@@ -90,6 +93,9 @@ def test_settings_read_from_environment() -> None:
     assert settings.model_registry_uri == "sqlite:///registry.db"
     assert settings.allow_demo_models is False
     assert settings.max_batch_size == 64
+    assert settings.drift_window_size == 128
+    assert settings.drift_min_samples == 32
+    assert settings.drift_threshold == pytest.approx(0.35)
     assert not settings.is_development
 
 
@@ -167,6 +173,26 @@ def test_non_boolean_setting_is_rejected() -> None:
 def test_zero_batch_size_is_rejected() -> None:
     with pytest.raises(ConfigurationError, match="MAX_BATCH_SIZE"):
         APISettings.from_env({"MLP_MAX_BATCH_SIZE": "0"})
+
+
+@pytest.mark.parametrize(
+    ("source", "setting"),
+    [
+        ({"MLP_DRIFT_WINDOW_SIZE": "1"}, "DRIFT_WINDOW_SIZE"),
+        (
+            {"MLP_DRIFT_WINDOW_SIZE": "10", "MLP_DRIFT_MIN_SAMPLES": "11"},
+            "DRIFT_MIN_SAMPLES",
+        ),
+        ({"MLP_DRIFT_THRESHOLD": "0"}, "DRIFT_THRESHOLD"),
+        ({"MLP_DRIFT_THRESHOLD": "nan"}, "DRIFT_THRESHOLD"),
+        ({"MLP_DRIFT_THRESHOLD": "inf"}, "DRIFT_THRESHOLD"),
+    ],
+)
+def test_invalid_drift_settings_are_rejected(
+    source: dict[str, str], setting: str
+) -> None:
+    with pytest.raises(ConfigurationError, match=setting):
+        APISettings.from_env(source)
 
 
 def test_development_may_run_open() -> None:

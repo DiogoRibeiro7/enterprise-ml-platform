@@ -2,13 +2,12 @@
 
 This module declares the core abstract protocols used throughout the
 Enterprise ML Platform. Implementations of these protocols should provide
-functional logic for data access, feature transformation and model
-training.
+functional logic for data access, feature transformation and model training.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Self, runtime_checkable
 
 
 @runtime_checkable
@@ -45,8 +44,8 @@ class FeatureTransformer(Protocol):
     consumption by applying feature engineering techniques.
     """
 
-    def fit(self, data: Any) -> None:
-        """Fit the transformer using input data.
+    def fit(self, data: Any) -> Self:
+        """Fit the transformer and return it for method chaining.
 
         Args:
             data: Input data used to compute transformation parameters.

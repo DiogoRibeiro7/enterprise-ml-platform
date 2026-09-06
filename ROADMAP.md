@@ -75,6 +75,10 @@ that stops it happening again unnoticed.
   Prometheus source plus model and platform-health dashboards, while named
   volumes retain every stateful service across restarts. CI validates the
   Compose model and builds both project-owned images.
+- **A strictly typed feature-engineering service.** The full service package is
+  checked by mypy instead of hidden behind the legacy exemption. Its shared
+  transformer contract now models fluent `fit()` correctly, refitting replaces
+  learned categorical state, and shutdown supports Dask's synchronous client.
 
 ## Next
 

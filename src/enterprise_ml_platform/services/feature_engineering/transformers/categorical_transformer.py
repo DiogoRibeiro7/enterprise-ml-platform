@@ -12,54 +12,53 @@ from ....core.base_components import FeatureTransformer
 
 @dataclass
 class CategoricalFeatureTransformer(FeatureTransformer):
-    """Encode categorical columns using a variety of strategies.
-
-    Parameters
-    ----------
-    config:
-        ``one_hot_threshold`` determines the maximum cardinality for one-hot
-        encoding.  Columns above this threshold will be frequency encoded unless
-        a target is supplied, in which case target encoding is used.
-    """
+    """Encode categorical columns using one-hot, target, or frequency encoding."""
 
     config: dict[str, Any]
     _encoders: dict[str, dict[str, float]] = field(init=False, default_factory=dict)
     _one_hot_cols: list[str] = field(init=False, default_factory=list)
-    _freq_cols: list[str] = field(init=False, default_factory=list)
 
     def fit(
         self, data: pd.DataFrame, target: pd.Series | None = None
-    ) -> CategoricalFeatureTransformer:  # type: ignore[override]
-        cat_cols = data.select_dtypes(include=["object", "category"]).columns
+    ) -> CategoricalFeatureTransformer:
+        """Learn encodings from ``data`` and replace any previously fitted state."""
+        self._encoders.clear()
+        self._one_hot_cols.clear()
+
+        categorical_columns = data.select_dtypes(include=["object", "category"]).columns
         threshold = int(self.config.get("one_hot_threshold", 10))
-        for col in cat_cols:
-            series = data[col].astype(str).fillna("__MISSING__")
-            n_unique = series.nunique()
-            if n_unique <= threshold:
-                self._one_hot_cols.append(col)
+        for column in categorical_columns:
+            series = data[column].fillna("__MISSING__").astype(str)
+            if series.nunique() <= threshold:
+                self._one_hot_cols.append(column)
+            elif target is not None:
+                means = target.groupby(series).mean()
+                self._encoders[column] = {
+                    str(category): float(mean) for category, mean in means.items()
+                }
             else:
-                if target is not None:
-                    means = target.groupby(series).mean()
-                    self._encoders[col] = means.to_dict()
-                else:
-                    freq = series.value_counts(normalize=True)
-                    self._encoders[col] = freq.to_dict()
-                    self._freq_cols.append(col)
+                frequencies = series.value_counts(normalize=True)
+                self._encoders[column] = {
+                    str(category): float(frequency)
+                    for category, frequency in frequencies.items()
+                }
         return self
 
-    def transform(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply the encodings learned by :meth:`fit`."""
         result = data.copy()
-        for col in self._one_hot_cols:
+        for column in self._one_hot_cols:
             dummies = pd.get_dummies(
-                result[col].astype(str).fillna("__MISSING__"), prefix=col
+                result[column].fillna("__MISSING__").astype(str), prefix=column
             )
-            result = result.drop(columns=[col]).join(dummies)
-        for col, mapping in self._encoders.items():
-            series = result[col].astype(str).fillna("__MISSING__")
-            result[col] = series.map(mapping).fillna(0.0)
+            result = result.drop(columns=[column]).join(dummies)
+        for column, mapping in self._encoders.items():
+            series = result[column].fillna("__MISSING__").astype(str)
+            result[column] = series.map(mapping).fillna(0.0)
         return result
 
     def fit_transform(
         self, data: pd.DataFrame, target: pd.Series | None = None
-    ) -> pd.DataFrame:  # type: ignore[override]
+    ) -> pd.DataFrame:
+        """Fit this transformer and transform ``data`` in one operation."""
         return self.fit(data, target).transform(data)

@@ -312,6 +312,7 @@ module = [
     "pyspark.*",
     "feast.*",
     "duckdb.*",
+    "pyarrow.*",
     "aiokafka.*",
     "aioboto3.*",
     "asyncpg.*",

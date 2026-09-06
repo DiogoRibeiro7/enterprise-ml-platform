@@ -85,19 +85,39 @@ that stops it happening again unnoticed.
   observable, Redis initialisation follows its real async contract, and S3
   Parquet schema inference uses the supported Arrow module.
 
-## Next
+## Current priorities
 
-In the order each becomes worth doing. Which release they land in is decided
-when they land, not here: a version number written down in advance is a claim
-that goes stale on its own.
+Repository work is ordered by the unsupported surface it removes. External
+validation is tracked separately so it cannot block improvements that can be
+proved entirely in CI.
 
-1. **A real SageMaker run.** The deployer is verified against the API contract,
-   not against AWS. One end-to-end deployment in a sandbox account would close
-   the gap between "the calls are right" and "it deploys".
-2. **Type annotations for the legacy services.** `pyproject.toml` lists the
-   modules still exempt from strict mypy. That list should only shrink.
-3. **Lint the examples.** CI checks `src` and `tests`. The example directory is
-   excluded, which is why 27 legacy files there have never been formatted.
+1. **Retire the remaining strict-mypy exemptions.** Ten legacy package families
+   are still hidden behind `ignore_errors`. The next slice is
+   `services.model_training`: it is on the platform's central path and already
+   has focused tests that can be strengthened while its exemption is removed.
+   Later slices should continue package by package, prioritising monitoring and
+   data quality before peripheral services. Every slice must remove a complete
+   first-party exemption, add regression coverage for the behaviour it touches,
+   and must not replace specific errors with a broader suppression.
+2. **Make the examples an honest supported surface.** CI currently checks
+   `src` and `tests`, while `examples` remains outside the lint gate. Start
+   with the fraud-detection end-to-end example because the README presents it as
+   runnable. For each remaining example suite, either make it runnable and
+   tested with its declared optional dependencies or label it illustrative and
+   keep it outside the supported product surface. Formatting alone is not a
+   completion criterion.
+3. **Cut the next release from merged evidence.** Once the current typing and
+   example-quality slices are complete, reconcile the README, package metadata,
+   citation metadata and changelog with the exact supported surface before
+   choosing and tagging the next version.
+
+## External validation
+
+- **Prove the SageMaker path against AWS.** The deployer is verified against a
+  stubbed API contract, not a live service. One end-to-end deployment, traffic
+  update and rollback in a sandbox account would close the gap between "the
+  calls are right" and "it deploys". Until that run exists, SageMaker remains
+  contract-tested rather than operationally proven.
 
 ## Not planned
 

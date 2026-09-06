@@ -1,20 +1,19 @@
 import asyncio
-import pathlib
-import sys
 
 import pandas as pd
 import pytest
 
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[3] / "src"))
-
 from enterprise_ml_platform.services.feature_engineering import (
     FeatureEngineeringService,
+)
+from enterprise_ml_platform.services.feature_engineering.transformers import (
+    CategoricalFeatureTransformer,
 )
 
 
 @pytest.fixture
 def sample_data():
-    df = pd.DataFrame(
+    frame = pd.DataFrame(
         {
             "num1": [1, 2, 3, 4, 5],
             "num2": [2, 4, 6, 8, 10],
@@ -23,11 +22,11 @@ def sample_data():
         }
     )
     target = pd.Series([0, 1, 0, 1, 0])
-    return df, target
+    return frame, target
 
 
 def test_service_creates_features(sample_data):
-    df, target = sample_data
+    frame, target = sample_data
     service = FeatureEngineeringService(
         {
             "transformers": {
@@ -39,6 +38,36 @@ def test_service_creates_features(sample_data):
             "feature_selection": {"method": "univariate", "k_best": 3},
         }
     )
-    engineered, metrics = asyncio.run(service.engineer_features(df, target))
+    engineered, metrics = asyncio.run(service.engineer_features(frame, target))
     assert metrics.features_created >= 0
     assert metrics.features_selected > 0
+    assert len(engineered) == len(frame)
+
+
+def test_categorical_refit_replaces_learned_state() -> None:
+    transformer = CategoricalFeatureTransformer({"one_hot_threshold": 2})
+    high_cardinality = pd.DataFrame({"city": ["Porto", "Lisbon", "Braga"]})
+    low_cardinality = pd.DataFrame({"city": ["Porto", "Porto", "Porto"]})
+
+    assert transformer.fit(high_cardinality) is transformer
+    transformer.fit(low_cardinality)
+
+    transformed = transformer.transform(low_cardinality)
+    assert transformed.columns.tolist() == ["city_Porto"]
+
+
+def test_shutdown_supports_synchronous_dask_client() -> None:
+    class SynchronousClient:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    service = FeatureEngineeringService({})
+    client = SynchronousClient()
+    service.client = client
+
+    asyncio.run(service.shutdown())
+
+    assert client.closed

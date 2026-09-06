@@ -8,10 +8,10 @@ description = "A reference implementation of a production ML platform: versioned
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Diogo Ribeiro", email = "dfr@esmad.ipp.pt"}
+    {name = "Diogo Ribeiro", email = "diogo_dj@hotmail.com"}
 ]
 maintainers = [
-    {name = "Diogo Ribeiro", email = "diogo.debastos.ribeiro@gmail.com"}
+    {name = "Diogo Ribeiro", email = "diogo_dj@hotmail.com"}
 ]
 keywords = [
     "machine-learning",
@@ -330,7 +330,6 @@ module = [
     "enterprise_ml_platform.services.data_ingestion.*",
     "enterprise_ml_platform.services.data_quality.*",
     "enterprise_ml_platform.services.distributed.*",
-    "enterprise_ml_platform.services.feature_engineering.*",
     "enterprise_ml_platform.services.mlops.*",
     "enterprise_ml_platform.services.model_training.*",
     "enterprise_ml_platform.services.monitoring.*",

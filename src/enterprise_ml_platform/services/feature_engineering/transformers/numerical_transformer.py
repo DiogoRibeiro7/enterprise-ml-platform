@@ -1,9 +1,6 @@
 """Numerical feature transformer.
 
-This module implements common numerical feature engineering techniques such as
-scaling, polynomial features and basic outlier handling.  The implementation is
-kept intentionally lightweight but showcases how production ready components can
-be structured.
+This module implements scaling, polynomial features, and basic outlier handling.
 """
 
 from __future__ import annotations
@@ -25,71 +22,80 @@ from ....core.base_components import FeatureTransformer
 
 @dataclass
 class NumericalFeatureTransformer(FeatureTransformer):
-    """Transformer for numerical columns.
-
-    Parameters
-    ----------
-    config:
-        Transformation options. Supported keys are:
-        ``scaler`` ("standard", "robust" or "quantile"), ``polynomial_degree`` and
-        ``interaction_only`` (bool).
-    """
+    """Transform numerical columns according to the supplied configuration."""
 
     config: dict[str, Any]
-    _scaler: Any | None = field(init=False, default=None)
+    _scaler: StandardScaler | RobustScaler | QuantileTransformer | None = field(
+        init=False, default=None
+    )
     _poly: PolynomialFeatures | None = field(init=False, default=None)
     _outlier_bounds: dict[str, tuple[float, float]] = field(
         init=False, default_factory=dict
     )
 
-    def fit(self, data: pd.DataFrame) -> NumericalFeatureTransformer:  # type: ignore[override]
-        numeric_cols = data.select_dtypes(include=[np.number]).columns
-        if self.config.get("scaler") == "robust":
-            self._scaler = RobustScaler().fit(data[numeric_cols])
-        elif self.config.get("scaler") == "quantile":
+    def fit(self, data: pd.DataFrame) -> NumericalFeatureTransformer:
+        """Learn scaling, polynomial, and outlier parameters from ``data``."""
+        numeric_columns = data.select_dtypes(include=[np.number]).columns
+        scaler_name = str(self.config.get("scaler", "standard"))
+        if scaler_name == "robust":
+            self._scaler = RobustScaler().fit(data[numeric_columns])
+        elif scaler_name == "quantile":
             self._scaler = QuantileTransformer(output_distribution="normal").fit(
-                data[numeric_cols]
+                data[numeric_columns]
             )
         else:
-            self._scaler = StandardScaler().fit(data[numeric_cols])
+            self._scaler = StandardScaler().fit(data[numeric_columns])
 
         degree = int(self.config.get("polynomial_degree", 1))
-        if degree > 1 or self.config.get("interaction_only"):
+        interaction_only = bool(self.config.get("interaction_only", False))
+        self._poly = None
+        if degree > 1 or interaction_only:
             self._poly = PolynomialFeatures(
                 degree=degree,
-                interaction_only=self.config.get("interaction_only", False),
+                interaction_only=interaction_only,
                 include_bias=False,
-            ).fit(data[numeric_cols])
+            ).fit(data[numeric_columns])
 
+        self._outlier_bounds.clear()
         if self.config.get("detect_outliers", True):
-            for col in numeric_cols:
-                q1, q3 = data[col].quantile([0.25, 0.75])
-                iqr = q3 - q1
-                self._outlier_bounds[col] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
+            for column in numeric_columns:
+                quantiles = data[column].quantile([0.25, 0.75])
+                lower_quartile = float(quantiles.loc[0.25])
+                upper_quartile = float(quantiles.loc[0.75])
+                interquartile_range = upper_quartile - lower_quartile
+                self._outlier_bounds[column] = (
+                    lower_quartile - 1.5 * interquartile_range,
+                    upper_quartile + 1.5 * interquartile_range,
+                )
         return self
 
-    def transform(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
-        numeric_cols = data.select_dtypes(include=[np.number]).columns
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply the parameters learned by :meth:`fit`."""
+        numeric_columns = data.select_dtypes(include=[np.number]).columns
         result = data.copy()
         if self._scaler is not None:
-            scaled = self._scaler.transform(data[numeric_cols])
-            result[numeric_cols] = scaled
+            result[numeric_columns] = self._scaler.transform(data[numeric_columns])
         if self._poly is not None:
-            poly_features = self._poly.transform(data[numeric_cols])
-            names = self._poly.get_feature_names_out(numeric_cols)
-            poly_df = pd.DataFrame(poly_features, columns=names, index=data.index)
-            poly_df = poly_df.drop(columns=list(numeric_cols), errors="ignore")
-            result = result.join(poly_df)
-        for col in numeric_cols:
-            if col in self._outlier_bounds:
-                low, high = self._outlier_bounds[col]
-                result[f"{col}_outlier"] = (
-                    (data[col] < low) | (data[col] > high)
+            polynomial_values = self._poly.transform(data[numeric_columns])
+            names = self._poly.get_feature_names_out(numeric_columns)
+            polynomial_data = pd.DataFrame(
+                polynomial_values, columns=names, index=data.index
+            )
+            polynomial_data = polynomial_data.drop(
+                columns=list(numeric_columns), errors="ignore"
+            )
+            result = result.join(polynomial_data)
+        for column in numeric_columns:
+            if column in self._outlier_bounds:
+                lower, upper = self._outlier_bounds[column]
+                result[f"{column}_outlier"] = (
+                    (data[column] < lower) | (data[column] > upper)
                 ).astype(int)
             if self.config.get("bins"):
                 bins = int(self.config["bins"])
-                result[f"{col}_bin"] = pd.cut(data[col], bins=bins, labels=False)
+                result[f"{column}_bin"] = pd.cut(data[column], bins=bins, labels=False)
         return result
 
-    def fit_transform(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+    def fit_transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Fit this transformer and transform ``data`` in one operation."""
         return self.fit(data).transform(data)

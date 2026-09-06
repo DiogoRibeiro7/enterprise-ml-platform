@@ -79,6 +79,11 @@ that stops it happening again unnoticed.
   checked by mypy instead of hidden behind the legacy exemption. Its shared
   transformer contract now models fluent `fit()` correctly, refitting replaces
   learned categorical state, and shutdown supports Dask's synchronous client.
+- **Typed and testable data ingestion.** The ingestion service and its S3,
+  PostgreSQL and Kafka connectors are now checked by mypy. Connector injection
+  makes orchestration testable without external systems, validation reports are
+  observable, Redis initialisation follows its real async contract, and S3
+  Parquet schema inference uses the supported Arrow module.
 
 ## Next
 

@@ -327,7 +327,6 @@ ignore_missing_imports = true
 module = [
     "enterprise_ml_platform.services.ab_testing.*",
     "enterprise_ml_platform.services.analytics.*",
-    "enterprise_ml_platform.services.data_ingestion.*",
     "enterprise_ml_platform.services.data_quality.*",
     "enterprise_ml_platform.services.distributed.*",
     "enterprise_ml_platform.services.mlops.*",

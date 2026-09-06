@@ -10,63 +10,61 @@ import pyarrow as pa
 import structlog
 
 try:  # pragma: no cover - optional dependency
-    import asyncpg
-except Exception:  # pragma: no cover - optional dependency
-    asyncpg = None  # type: ignore
+    import asyncpg as _asyncpg
+except ImportError:  # pragma: no cover - optional dependency
+    _asyncpg = None
 
 from .base import AsyncDataConnector
 
 
 class PostgresDataConnector(AsyncDataConnector):
-    """Asynchronous connector for PostgreSQL databases.
-
-    Parameters
-    ----------
-    dsn:
-        Connection string or parameters for :mod:`asyncpg`.
-    """
+    """Read PostgreSQL query results through an asynchronous connection pool."""
 
     def __init__(self, dsn: str, **connect_kwargs: Any) -> None:
         self.dsn = dsn
         self.connect_kwargs = connect_kwargs
-        self._pool: asyncpg.Pool | None = None
+        self._pool: Any | None = None
         self._log = structlog.get_logger().bind(connector="postgres")
 
     async def connect(self) -> None:
-        if asyncpg is None:  # pragma: no cover - dependency guard
+        """Create the PostgreSQL connection pool."""
+        if _asyncpg is None:  # pragma: no cover - dependency guard
             raise RuntimeError("asyncpg is required for Postgres connector")
-        self._pool = await asyncpg.create_pool(dsn=self.dsn, **self.connect_kwargs)
+        self._pool = await _asyncpg.create_pool(dsn=self.dsn, **self.connect_kwargs)
 
     async def disconnect(self) -> None:
-        if self._pool:
+        """Close the connection pool when it exists."""
+        if self._pool is not None:
             await self._pool.close()
             self._pool = None
 
-    async def read(
-        self,
-        query: str,
-        chunk_size: int = 10000,
-    ) -> AsyncIterator[pd.DataFrame]:
-        """Execute a query and stream results in chunks."""
-
-        if not self._pool:
+    async def read(self, **config: Any) -> AsyncIterator[pd.DataFrame]:
+        """Execute ``query`` and stream records in bounded chunks."""
+        if self._pool is None:
             raise RuntimeError("Connector not connected")
+        query = config.get("query")
+        if not isinstance(query, str) or not query:
+            raise ValueError("query must be a non-empty string")
+        chunk_size = int(config.get("chunk_size", 10000))
+        if chunk_size < 1:
+            raise ValueError("chunk_size must be positive")
 
         async with self._pool.acquire() as connection:
-            statement = connection.cursor(query)
-            batch = []
-            async for record in statement:
+            records = connection.cursor(query)
+            batch: list[dict[str, Any]] = []
+            async for record in records:
                 batch.append(dict(record))
                 if len(batch) >= chunk_size:
-                    yield pd.DataFrame(batch)
+                    yield pd.DataFrame.from_records(batch)
                     batch.clear()
             if batch:
-                yield pd.DataFrame(batch)
+                yield pd.DataFrame.from_records(batch)
 
     async def get_schema(self) -> pa.Schema:
-        if not self._pool:
+        """Infer a schema from a minimal query against the connection."""
+        if self._pool is None:
             raise RuntimeError("Connector not connected")
         async with self._pool.acquire() as connection:
-            table = await connection.fetch("SELECT 1")
-            df = pd.DataFrame([dict(r) for r in table])
-            return pa.Table.from_pandas(df).schema
+            records = await connection.fetch("SELECT 1")
+            frame = pd.DataFrame.from_records([dict(record) for record in records])
+            return pa.Table.from_pandas(frame).schema

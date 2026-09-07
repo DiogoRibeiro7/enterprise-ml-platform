@@ -16,6 +16,7 @@ platform.
 | --- | --- | --- |
 | System context | Who uses the platform and which external systems does it depend on? | [`docs/architecture/context.puml`](docs/architecture/context.puml) |
 | Container/runtime | Which processes and data stores exist at runtime, and how do they communicate? | [`docs/architecture/containers.puml`](docs/architecture/containers.puml) |
+| Serving sequence | How is an immutable model version loaded and then used for prediction, drift observation and telemetry? | [`docs/architecture/inference-sequence.puml`](docs/architecture/inference-sequence.puml) |
 | ML lifecycle | How does data become a promoted and served model? | [`README.md`](README.md#the-lifecycle-it-demonstrates) |
 
 The C4 sources use PlantUML's bundled C4 standard library with
@@ -45,7 +46,7 @@ package names.
 | Serving API | [`api/`](src/enterprise_ml_platform/api/) | Validates requests, resolves model aliases, caches immutable model versions, serves predictions and exports metrics |
 | Online feature store | [`feature_store/online_store.py`](src/enterprise_ml_platform/services/feature_store/online_store.py) | Redis-backed versioned feature values with TTL and all-or-nothing reads |
 | Offline feature store | [`feature_store/offline_store.py`](src/enterprise_ml_platform/services/feature_store/offline_store.py) | Parquet history queried with DuckDB for persistent point-in-time retrieval |
-| Experiment tracking and registry | [`model_training/service.py`](src/enterprise_ml_platform/services/model_training/service.py), [`model_registry/mlflow_registry.py`](src/enterprise_ml_platform/services/model_registry/mlflow_registry.py) | MLflow runs, model artifacts, immutable versions, aliases, promotion and rollback |
+| Experiment tracking and registry | [`model_training/service.py`](src/enterprise_ml_platform/services/model_training/service.py), [`model_registry/mlflow_registry.py`](src/enterprise_ml_platform/services/model_registry/mlflow_registry.py) | MLflow runs, model artifacts, immutable model versions, aliases, promotion and rollback |
 | Metrics store | [`monitoring/prometheus/`](monitoring/prometheus/) | Prometheus scraping, time-series retention and alert rules |
 | Observability UI | [`monitoring/grafana/`](monitoring/grafana/) | Provisioned Grafana dashboards backed by Prometheus |
 
@@ -54,6 +55,18 @@ Redis, MLflow, Prometheus and Grafana boundaries in
 [`docker/docker-compose.yml`](docker/docker-compose.yml). The Python modules
 under `services/` are not drawn as independent network services unless a real
 process boundary exists.
+
+## Serving sequence
+
+The sequence view documents a subtle but important serving property. Model
+aliases are resolved when a model is loaded, not on every prediction request.
+The API then serves the cached immutable version until another load changes the
+cache. Drift state and prediction telemetry are therefore labelled against the
+same exact model version that produced the prediction.
+
+Validation failures are rejected before the model call and do not contribute
+to model error-rate telemetry. Blocking inference runs on a worker thread so an
+individual model call does not block the FastAPI event loop.
 
 ## Important relationships
 
@@ -78,6 +91,7 @@ With a current PlantUML installation:
 ```bash
 plantuml -tsvg docs/architecture/context.puml
 plantuml -tsvg docs/architecture/containers.puml
+plantuml -tsvg docs/architecture/inference-sequence.puml
 ```
 
 Or, when using the PlantUML JAR directly:
@@ -85,6 +99,7 @@ Or, when using the PlantUML JAR directly:
 ```bash
 java -jar plantuml.jar -tsvg docs/architecture/context.puml
 java -jar plantuml.jar -tsvg docs/architecture/containers.puml
+java -jar plantuml.jar -tsvg docs/architecture/inference-sequence.puml
 ```
 
 SVG is the preferred rendered format for documentation because it stays sharp

@@ -1,0 +1,19 @@
+@startuml EnterpriseMLPlatformContext
+!include <C4/C4_Context>
+
+LAYOUT_LEFT_RIGHT()
+title Enterprise ML Platform - System Context
+
+Person(ml_engineer, "ML engineer / data scientist", "Builds data and ML workflows, trains and promotes models, and operates the platform.")
+System_Ext(prediction_clients, "Prediction clients", "Applications or analysts that call the HTTP serving interface.")
+System_Ext(data_sources, "Operational data sources", "S3 buckets, PostgreSQL databases and Kafka topics exposed through optional connectors.")
+System(ml_platform, "Enterprise ML Platform", "Reference ML platform for ingestion, feature management, reproducible training, model registry, serving, monitoring and controlled deployment.")
+System_Ext(sagemaker, "AWS SageMaker", "Optional external deployment target for managed model endpoints.")
+
+Rel(ml_engineer, ml_platform, "Runs data, training, registry, observability and deployment workflows", "Python / CLI / HTTP")
+Rel(prediction_clients, ml_platform, "Requests predictions and model operations", "HTTPS / JSON")
+Rel(ml_platform, data_sources, "Reads source data through configured connectors", "S3 / PostgreSQL / Kafka")
+Rel(ml_platform, sagemaker, "Creates and updates endpoints when AWS deployment is selected", "boto3 / SageMaker API")
+
+SHOW_LEGEND()
+@enduml

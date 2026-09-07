@@ -1,0 +1,38 @@
+@startuml EnterpriseMLPlatformContainers
+!include <C4/C4_Container>
+
+title Enterprise ML Platform - Container and Runtime View
+
+Person(ml_engineer, "ML engineer / data scientist", "Runs data, training, promotion, rollback and deployment workflows.")
+System_Ext(prediction_clients, "Prediction clients", "Applications or analysts calling the serving API.")
+System_Ext(data_sources, "Operational data sources", "S3, PostgreSQL and Kafka sources reached through optional connectors.")
+System_Ext(sagemaker, "AWS SageMaker", "Optional deployment target. The repository validates the API contract with stubs; live AWS validation remains separate work.")
+
+System_Boundary(platform, "Enterprise ML Platform") {
+    Container(mlops, "ML operations process", "Python package / CLI", "Runs ingestion, feature engineering, pipeline orchestration, training, registry operations and optional deployment adapters.")
+    Container(api, "Serving API", "FastAPI / Uvicorn", "Validates requests, resolves model aliases, caches immutable model versions, serves predictions and exports metrics.")
+    ContainerDb(online_store, "Online feature store", "Redis", "Stores versioned online feature values with TTL and all-or-nothing reads.")
+    ContainerDb(offline_store, "Offline feature store", "Parquet + DuckDB", "Stores persistent feature history and supports point-in-time retrieval.")
+    ContainerDb(mlflow, "Experiment tracking and model registry", "MLflow + SQLite / artifact store", "Stores tracked runs, model artifacts, immutable model versions and champion/challenger aliases.")
+    Container(prometheus, "Metrics store", "Prometheus", "Scrapes serving metrics, retains time series and evaluates alert rules.")
+    Container(grafana, "Observability UI", "Grafana", "Queries Prometheus and renders provisioned model and platform dashboards.")
+}
+
+Rel(ml_engineer, mlops, "Runs data, training, promotion, rollback and deployment workflows", "Python / CLI")
+Rel(ml_engineer, grafana, "Reviews operational and model telemetry", "HTTP")
+Rel(prediction_clients, api, "Requests predictions and model operations", "HTTPS / JSON")
+
+Rel(mlops, data_sources, "Reads source data through optional connectors", "S3 / PostgreSQL / Kafka")
+Rel(mlops, offline_store, "Reads and writes point-in-time feature history", "Parquet / DuckDB")
+Rel(mlops, mlflow, "Logs runs and artifacts; registers, promotes and rolls back model versions", "MLflow API")
+Rel(mlops, sagemaker, "Creates and updates model endpoints when AWS deployment is selected", "boto3 / SageMaker API")
+
+Rel(api, mlflow, "Resolves aliases and loads immutable model versions", "MLflow API")
+Rel(api, online_store, "Reads and writes online features", "Redis")
+Rel(api, offline_store, "Uses persistent offline features when configured", "Parquet / DuckDB")
+
+Rel(prometheus, api, "Scrapes request, latency and drift metrics", "HTTP /api/v1/metrics")
+Rel(grafana, prometheus, "Queries time series", "PromQL")
+
+SHOW_LEGEND()
+@enduml

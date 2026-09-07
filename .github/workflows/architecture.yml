@@ -2,7 +2,9 @@ name: Architecture diagrams
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - docs/reader-visible-architecture
     paths:
       - "docs/architecture/**"
       - "ARCHITECTURE.md"
@@ -17,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: architecture-${{ github.ref }}
@@ -64,30 +66,48 @@ jobs:
           java -jar /tmp/plantuml.jar -testdot | tee /tmp/plantuml-testdot.txt
           ! grep -qi "does not exist\|cannot find graphviz" /tmp/plantuml-testdot.txt
 
-      - name: Render every architecture source
+      - name: Render reader-visible SVGs
         shell: bash
         env:
           GRAPHVIZ_DOT: /usr/bin/dot
         run: |
           set -euo pipefail
-          rm -rf /tmp/architecture-svg
-          mkdir -p /tmp/architecture-svg
+          rm -rf docs/architecture/rendered
+          mkdir -p docs/architecture/rendered
           mapfile -t sources < <(find docs/architecture -maxdepth 1 -type f -name '*.puml' -print | sort)
           test "${#sources[@]}" -gt 0
 
-          java -jar /tmp/plantuml.jar -failfast2 -tsvg -o /tmp/architecture-svg "${sources[@]}"
+          java -jar /tmp/plantuml.jar -failfast2 -tsvg -o rendered "${sources[@]}"
 
-          mapfile -t rendered < <(find /tmp/architecture-svg -maxdepth 1 -type f -name '*.svg' -print | sort)
+          mapfile -t rendered < <(find docs/architecture/rendered -maxdepth 1 -type f -name '*.svg' -print | sort)
           test "${#rendered[@]}" -eq "${#sources[@]}"
+          ! grep -Rqi "cannot find graphviz\|dot executable does not exist\|syntax error" docs/architecture/rendered
 
-          # PlantUML can emit an SVG containing a diagnostic message. Treat
-          # that as a failed render rather than accepting a broken diagram.
-          ! grep -Rqi "cannot find graphviz\|dot executable does not exist\|syntax error" /tmp/architecture-svg
+      - name: Commit generated diagrams on the documentation branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/docs/reader-visible-architecture'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add docs/architecture/rendered
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: render architecture diagrams"
+          git push origin HEAD:docs/reader-visible-architecture
+
+      - name: Verify committed renders are current
+        if: github.event_name != 'push' || github.ref != 'refs/heads/docs/reader-visible-architecture'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- docs/architecture/rendered
 
       - name: Upload rendered SVGs
         uses: actions/upload-artifact@v4
         with:
           name: architecture-svg
-          path: /tmp/architecture-svg/*.svg
+          path: docs/architecture/rendered/*.svg
           if-no-files-found: error
           retention-days: 14

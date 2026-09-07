@@ -15,6 +15,15 @@ below says exactly which parts are implemented and covered by tests and which
 are scaffolding, because a platform that reports success it never achieved is
 worse than one that admits the gap.
 
+## Architecture
+
+![Enterprise ML Platform system context](docs/architecture/rendered/EnterpriseMLPlatformContext.svg)
+
+The architecture is documented as code with C4/PlantUML and committed SVG
+renders for GitHub readers. See [ARCHITECTURE.md](ARCHITECTURE.md) for the
+container/runtime view, serving sequence, implementation evidence and the
+boundaries that are intentionally not presented as proven production topology.
+
 ## What is implemented
 
 | Capability | State | Where |

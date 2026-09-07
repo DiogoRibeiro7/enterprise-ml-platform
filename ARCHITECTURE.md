@@ -19,11 +19,13 @@ platform.
 | Serving sequence | How is an immutable model version loaded and then used for prediction, drift observation and telemetry? | [`docs/architecture/inference-sequence.puml`](docs/architecture/inference-sequence.puml) |
 | ML lifecycle | How does data become a promoted and served model? | [`README.md`](README.md#the-lifecycle-it-demonstrates) |
 
-The C4 sources use PlantUML's bundled C4 standard library with
-`!include <C4/...>`. Rendering therefore does not require downloading a C4
-library from a remote URL.
+The `.puml` files are the editable source of truth. Their validated SVG renders
+are committed under `docs/architecture/rendered/` so GitHub readers can see the
+architecture directly without installing PlantUML or downloading CI artifacts.
 
 ## System context
+
+![Enterprise ML Platform system context](docs/architecture/rendered/EnterpriseMLPlatformContext.svg)
 
 The platform has two primary interaction modes. ML engineers and data
 scientists run data, training, registry and deployment workflows. Prediction
@@ -36,6 +38,8 @@ implemented and tested against a stubbed AWS API, but the roadmap still tracks
 a live AWS deployment as external validation work.
 
 ## Container and runtime boundaries
+
+![Enterprise ML Platform container and runtime view](docs/architecture/rendered/EnterpriseMLPlatformContainers.svg)
 
 The container view models deployment and process boundaries rather than Python
 package names.
@@ -57,6 +61,8 @@ under `services/` are not drawn as independent network services unless a real
 process boundary exists.
 
 ## Serving sequence
+
+![Enterprise ML Platform model load and prediction sequence](docs/architecture/rendered/EnterpriseMLPlatformInferenceSequence.svg)
 
 The sequence view documents a subtle but important serving property. Model
 aliases are resolved when a model is loaded, not on every prediction request.
@@ -86,7 +92,8 @@ library call hidden inside inference.
 
 ## Rendering
 
-With a current PlantUML installation:
+The committed SVGs are generated from the PlantUML sources by the architecture
+workflow. For local rendering with a current PlantUML installation:
 
 ```bash
 plantuml -tsvg docs/architecture/context.puml
@@ -102,9 +109,8 @@ java -jar plantuml.jar -tsvg docs/architecture/containers.puml
 java -jar plantuml.jar -tsvg docs/architecture/inference-sequence.puml
 ```
 
-SVG is the preferred rendered format for documentation because it stays sharp
-when architecture diagrams are viewed at different sizes. The `.puml` files
-remain the source of truth.
+SVG is the reader-facing format because it stays sharp at different sizes. The
+`.puml` files remain the source of truth.
 
 ## Deliberate omissions
 

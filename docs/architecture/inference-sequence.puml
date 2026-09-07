@@ -1,0 +1,67 @@
+@startuml EnterpriseMLPlatformInferenceSequence
+
+title Enterprise ML Platform - Model Load and Prediction Sequence
+
+autonumber
+
+actor Client
+participant "FastAPI model router" as ModelAPI
+participant "FastAPI prediction router" as PredictAPI
+participant "ModelRegistry cache" as Cache
+participant "MLflow registry" as MLflow
+participant "ServingDriftMonitor" as Drift
+participant "Worker thread" as Worker
+participant "LoadedModel" as Model
+participant "MetricsCollector" as Metrics
+
+== Load an immutable model version ==
+
+Client -> ModelAPI: POST /api/v1/models/{name}/load
+ModelAPI -> Cache: load(name, alias/version)
+
+alt registry-backed serving
+    Cache -> MLflow: resolve alias or exact version
+    MLflow --> Cache: immutable model version metadata
+    Cache -> MLflow: load exact model version
+    MLflow --> Cache: model + drift reference
+else development demo mode
+    Cache -> Cache: fit ephemeral demo model
+end
+
+Cache -> Cache: replace in-process cached model
+Cache --> ModelAPI: ModelInfo(name, version)
+ModelAPI -> Drift: register exact version + drift reference
+ModelAPI --> Client: loaded model name + immutable version
+
+== Serve a prediction ==
+
+Client -> PredictAPI: POST /api/v1/predict
+PredictAPI -> Cache: get(model_name)
+Cache --> PredictAPI: LoadedModel(name, version)
+PredictAPI -> PredictAPI: validate requested version and feature shape
+
+alt model missing / wrong version / invalid shape
+    PredictAPI --> Client: 4xx response
+else valid request
+    PredictAPI -> Drift: observe validated inputs for exact model version
+    PredictAPI -> Worker: asyncio.to_thread(LoadedModel.predict)
+    Worker -> Model: predict(float array)
+    Model --> Worker: raw predictions
+    Worker --> PredictAPI: numeric predictions
+
+    alt model call succeeds
+        PredictAPI -> Metrics: record_prediction(name, version, latency, rows)
+        PredictAPI --> Client: predictions + model_version + latency_ms
+    else model call fails or is cancelled
+        PredictAPI -> Metrics: record_prediction_error(name, version, latency)
+        PredictAPI --> Client: 5xx / cancellation
+    end
+end
+
+note over Cache,Model
+Prediction does not resolve the MLflow alias again.
+The alias is resolved during load, then the API serves
+that cached immutable version until another load occurs.
+end note
+
+@enduml

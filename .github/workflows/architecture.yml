@@ -1,0 +1,66 @@
+name: Architecture diagrams
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/architecture/**"
+      - "ARCHITECTURE.md"
+      - "README.md"
+      - ".github/workflows/architecture.yml"
+  pull_request:
+    paths:
+      - "docs/architecture/**"
+      - "ARCHITECTURE.md"
+      - "README.md"
+      - ".github/workflows/architecture.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: architecture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render PlantUML architecture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download pinned PlantUML
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            https://github.com/plantuml/plantuml/releases/download/v1.2026.6/plantuml-1.2026.6.jar \
+            -o /tmp/plantuml.jar
+          echo "89948f14c93756c7a3fb7b69078ff37e8489fd79dd430c582b931e2f65358690  /tmp/plantuml.jar" \
+            | sha256sum --check --strict
+
+      - name: Render every architecture source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/architecture-svg
+          mapfile -t sources < <(find docs/architecture -maxdepth 1 -type f -name '*.puml' -print | sort)
+          test "${#sources[@]}" -gt 0
+          java -jar /tmp/plantuml.jar -tsvg -o /tmp/architecture-svg "${sources[@]}"
+
+          mapfile -t rendered < <(find /tmp/architecture-svg -maxdepth 1 -type f -name '*.svg' -print | sort)
+          test "${#rendered[@]}" -eq "${#sources[@]}"
+
+      - name: Upload rendered SVGs
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-svg
+          path: /tmp/architecture-svg/*.svg
+          if-no-files-found: error
+          retention-days: 14

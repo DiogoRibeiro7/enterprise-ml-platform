@@ -97,6 +97,13 @@ jobs:
           git commit -m "docs: render architecture diagrams"
           git push origin HEAD:docs/reader-visible-architecture
 
+      - name: Verify committed renders are current
+        if: github.event_name != 'push' || github.ref != 'refs/heads/docs/reader-visible-architecture'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- docs/architecture/rendered
+
       - name: Upload rendered SVGs
         uses: actions/upload-artifact@v4
         with:

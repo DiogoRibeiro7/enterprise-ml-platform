@@ -35,6 +35,16 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Install and verify Graphviz
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes graphviz
+          command -v dot
+          dot -V
+          test "$(command -v dot)" = "/usr/bin/dot"
+
       - name: Download pinned PlantUML
         shell: bash
         run: |
@@ -45,17 +55,34 @@ jobs:
           echo "89948f14c93756c7a3fb7b69078ff37e8489fd79dd430c582b931e2f65358690  /tmp/plantuml.jar" \
             | sha256sum --check --strict
 
-      - name: Render every architecture source
+      - name: Verify PlantUML can use Graphviz
         shell: bash
+        env:
+          GRAPHVIZ_DOT: /usr/bin/dot
         run: |
           set -euo pipefail
+          java -jar /tmp/plantuml.jar -testdot | tee /tmp/plantuml-testdot.txt
+          ! grep -qi "does not exist\|cannot find graphviz" /tmp/plantuml-testdot.txt
+
+      - name: Render every architecture source
+        shell: bash
+        env:
+          GRAPHVIZ_DOT: /usr/bin/dot
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/architecture-svg
           mkdir -p /tmp/architecture-svg
           mapfile -t sources < <(find docs/architecture -maxdepth 1 -type f -name '*.puml' -print | sort)
           test "${#sources[@]}" -gt 0
-          java -jar /tmp/plantuml.jar -tsvg -o /tmp/architecture-svg "${sources[@]}"
+
+          java -jar /tmp/plantuml.jar -failfast2 -tsvg -o /tmp/architecture-svg "${sources[@]}"
 
           mapfile -t rendered < <(find /tmp/architecture-svg -maxdepth 1 -type f -name '*.svg' -print | sort)
           test "${#rendered[@]}" -eq "${#sources[@]}"
+
+          # PlantUML can emit an SVG containing a diagnostic message. Treat
+          # that as a failed render rather than accepting a broken diagram.
+          ! grep -Rqi "cannot find graphviz\|dot executable does not exist\|syntax error" /tmp/architecture-svg
 
       - name: Upload rendered SVGs
         uses: actions/upload-artifact@v4

@@ -17,6 +17,7 @@ platform.
 | System context | Who uses the platform and which external systems does it depend on? | [`docs/architecture/context.puml`](docs/architecture/context.puml) |
 | Container/runtime | Which processes and data stores exist at runtime, and how do they communicate? | [`docs/architecture/containers.puml`](docs/architecture/containers.puml) |
 | Serving sequence | How is an immutable model version loaded and then used for prediction, drift observation and telemetry? | [`docs/architecture/inference-sequence.puml`](docs/architecture/inference-sequence.puml) |
+| Training and registry sequence | How does a trained model become an immutable registered version, and what changes during promotion or rollback? | [`docs/architecture/training-registry-sequence.puml`](docs/architecture/training-registry-sequence.puml) |
 | ML lifecycle | How does data become a promoted and served model? | [`README.md`](README.md#the-lifecycle-it-demonstrates) |
 
 The `.puml` files are the editable source of truth. Their validated SVG renders
@@ -74,6 +75,22 @@ Validation failures are rejected before the model call and do not contribute
 to model error-rate telemetry. Blocking inference runs on a worker thread so an
 individual model call does not block the FastAPI event loop.
 
+## Training and registry sequence
+
+![Enterprise ML Platform training, registration, promotion and rollback sequence](docs/architecture/rendered/EnterpriseMLPlatformTrainingRegistrySequence.svg)
+
+The training/registry view zooms into the ML-operations container. It separates
+model fitting from registry state and makes the immutable-version contract
+explicit. Training may optimize hyperparameters, fit and evaluate a trainer,
+produce explainability outputs, and record parameters, metrics, a drift
+reference and the serialized model inside one explicit MLflow run.
+
+Registration turns the logged artifact into an immutable model version.
+Promotion and rollback do not mutate that artifact or retrain the model: they
+move the deployment alias, normally `champion`, between existing versions.
+Serving resolves that alias when the model is loaded and then caches the exact
+version, which links this sequence directly to the serving sequence above.
+
 ## Important relationships
 
 The serving API resolves the configured MLflow model alias once, loads the
@@ -99,6 +116,7 @@ workflow. For local rendering with a current PlantUML installation:
 plantuml -tsvg docs/architecture/context.puml
 plantuml -tsvg docs/architecture/containers.puml
 plantuml -tsvg docs/architecture/inference-sequence.puml
+plantuml -tsvg docs/architecture/training-registry-sequence.puml
 ```
 
 Or, when using the PlantUML JAR directly:
@@ -107,6 +125,7 @@ Or, when using the PlantUML JAR directly:
 java -jar plantuml.jar -tsvg docs/architecture/context.puml
 java -jar plantuml.jar -tsvg docs/architecture/containers.puml
 java -jar plantuml.jar -tsvg docs/architecture/inference-sequence.puml
+java -jar plantuml.jar -tsvg docs/architecture/training-registry-sequence.puml
 ```
 
 SVG is the reader-facing format because it stays sharp at different sizes. The

@@ -1,0 +1,98 @@
+@startuml EnterpriseMLPlatformTrainingRegistrySequence
+
+title Enterprise ML Platform - Training, Registration, Promotion and Rollback
+autonumber
+
+actor "ML engineer / pipeline" as User
+participant "ModelTrainingService" as Training
+participant "HyperparameterOptimizer" as Optimizer
+participant "Trainer\n(XGBoost / LightGBM / Ensemble)" as Trainer
+participant "ModelExplainer" as Explainer
+participant "MLflow tracking" as Tracking
+participant "MLflow artifact store" as Artifacts
+participant "MLflowModelRegistry" as Registry
+participant "MLflow Model Registry" as MLflowRegistry
+participant "Serving model loader" as Serving
+
+== Train and evaluate ==
+
+User -> Training: train(X, y, config, X_val, y_val)
+
+opt hyperparameter optimization configured
+    Training -> Optimizer: optimize(trainer factory, X, y, search config)
+    Optimizer --> Training: best parameters
+end
+
+Training -> Trainer: train(...)
+Trainer --> Training: trained model
+Training -> Trainer: evaluate(model, validation data)
+Trainer --> Training: metrics
+
+opt explainability configured
+    Training -> Explainer: explain(model, X, explainability config)
+    Explainer --> Training: explanation outputs
+end
+
+== Track immutable training evidence ==
+
+alt MLflow tracking enabled
+    Training -> Tracking: start explicit experiment run
+    Training -> Tracking: log parameters + metrics
+    Training -> Tracking: log drift-reference metadata
+    Training -> Artifacts: log serialized model artifact
+    Artifacts --> Training: model URI
+    Tracking --> Training: run ID
+else tracking disabled
+    Training -> Training: return model + metrics only
+end
+
+Training --> User: model + metrics
+
+== Register an immutable model version ==
+
+User -> Registry: register(name, model URI, tags, description)
+Registry -> MLflowRegistry: register model artifact
+MLflowRegistry --> Registry: immutable version N
+Registry --> User: ModelVersionInfo(name, N, run_id, source)
+
+== Promote deployment intent ==
+
+User -> Registry: promote(name, N, alias="champion")
+Registry -> MLflowRegistry: move champion alias -> version N
+MLflowRegistry --> Registry: alias updated
+Registry --> User: promoted version metadata
+
+note over Registry,MLflowRegistry
+Promotion changes registry metadata only.
+The immutable model artifact and version N do not change.
+end note
+
+== Load for serving ==
+
+Serving -> Registry: resolve champion alias
+Registry -> MLflowRegistry: get version by alias
+MLflowRegistry --> Registry: exact immutable version N
+Registry --> Serving: models:/name/N + drift reference
+
+note over Serving
+Serving resolves the alias during model load.
+Prediction requests then use the cached immutable
+version until another load occurs.
+end note
+
+== Roll back ==
+
+User -> Registry: rollback(name, alias="champion")
+Registry -> MLflowRegistry: read current champion version N
+Registry -> MLflowRegistry: list older immutable versions
+MLflowRegistry --> Registry: versions N-1, N-2, ...
+Registry -> MLflowRegistry: move champion alias -> newest older version
+MLflowRegistry --> Registry: alias updated
+Registry --> User: rollback target metadata
+
+note over Registry,MLflowRegistry
+Rollback also moves only the alias.
+No historical artifact is mutated or retrained.
+end note
+
+@enduml

@@ -1,3 +1,4 @@
+' Rendered by the repository architecture workflow; source remains authoritative.
 @startuml EnterpriseMLPlatformTrainingRegistrySequence
 
 title Enterprise ML Platform - Training, Registration, Promotion and Rollback
